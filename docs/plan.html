@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PromptEdit Build Plan</title>
+<style>
+:root{
+  --bg:#f7f7f5; --surface:#ffffff; --surface-2:#f0efeb; --text:#1d1d1b; --muted:#5f5e5a;
+  --border:#dedcd5; --accent:#2f5bd3; --accent-soft:#e6ecfb; --ok:#1f7a4d; --ok-soft:#e3f3ea;
+  --warn:#9a5b00; --warn-soft:#fbf0dc; --bad:#b3261e; --bad-soft:#fbe7e5; --code-bg:#f3f2ee;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#141413; --surface:#1d1d1b; --surface-2:#262624; --text:#ecebe6; --muted:#a5a39b;
+    --border:#3a3936; --accent:#8aa8ff; --accent-soft:#232c45; --ok:#6fd19f; --ok-soft:#1c3328;
+    --warn:#f0b75a; --warn-soft:#3a2d17; --bad:#ff8a80; --bad-soft:#3d1f1d; --code-bg:#232321;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141413; --surface:#1d1d1b; --surface-2:#262624; --text:#ecebe6; --muted:#a5a39b;
+  --border:#3a3936; --accent:#8aa8ff; --accent-soft:#232c45; --ok:#6fd19f; --ok-soft:#1c3328;
+  --warn:#f0b75a; --warn-soft:#3a2d17; --bad:#ff8a80; --bad-soft:#3d1f1d; --code-bg:#232321;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 var(--sans)}
+.layout{display:grid;grid-template-columns:220px minmax(0,1fr);max-width:1200px;margin:0 auto;gap:40px;padding:32px 24px 80px}
+nav.toc{position:sticky;top:24px;align-self:start;font-size:13.5px;max-height:calc(100vh - 48px);overflow:auto}
+nav.toc .grp{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:18px 0 6px}
+nav.toc a{display:block;color:var(--muted);text-decoration:none;padding:3px 0 3px 10px;border-left:2px solid var(--border)}
+nav.toc a:hover{color:var(--text);border-left-color:var(--accent)}
+main{min-width:0}
+header.hero{border-bottom:1px solid var(--border);padding-bottom:20px}
+.eyebrow{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:600}
+h1{font-size:32px;line-height:1.15;margin:8px 0 10px;letter-spacing:-.02em}
+h2{font-size:22px;margin:48px 0 10px;letter-spacing:-.01em;scroll-margin-top:20px}
+h3{font-size:16px;margin:22px 0 6px}
+p{margin:0 0 10px} .muted{color:var(--muted)}
+.part{margin-top:56px;padding:9px 14px;border-radius:8px;background:var(--accent-soft);color:var(--accent);font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+code,pre{font-family:var(--mono);font-size:13px}
+:not(pre)>code{background:var(--code-bg);padding:1px 5px;border-radius:4px;border:1px solid var(--border)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;overflow:auto;line-height:1.5;margin:8px 0 0}
+.cm{color:var(--muted)} .kw{color:var(--accent)}
+details{margin:8px 0 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+details>summary{cursor:pointer;padding:9px 14px;font-size:14px;font-weight:600;list-style:none}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:"▸ ";color:var(--muted)}
+details[open]>summary::before{content:"▾ "}
+details>pre{margin:0 10px 10px}
+details>.inner{padding:0 14px 12px}
+table{width:100%;border-collapse:collapse;margin:6px 0 14px;font-size:14px}
+.tw{overflow-x:auto}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;background:var(--surface-2)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:13px;white-space:nowrap}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:14px 0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px}
+.card h4{margin:0 0 4px;font-size:15px}
+.card p{font-size:14px;color:var(--muted);margin:0}
+.callout{border-radius:10px;padding:12px 14px;margin:12px 0;font-size:14px}
+.callout.warn{background:var(--warn-soft)} .callout.ok{background:var(--ok-soft)}
+.pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;font-weight:600;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)} .p-warn{background:var(--warn-soft);color:var(--warn)}
+.p-bad{background:var(--bad-soft);color:var(--bad)} .p-acc{background:var(--accent-soft);color:var(--accent)}
+.p-mut{background:var(--surface-2);color:var(--muted)}
+figure{margin:14px 0 18px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;overflow-x:auto}
+figcaption{font-size:13px;color:var(--muted);margin-top:6px}
+svg text{font-family:var(--sans);fill:var(--text)}
+svg .box{fill:var(--surface-2);stroke:var(--border)}
+svg .boxa{fill:var(--accent-soft);stroke:var(--accent)}
+svg .boxok{fill:var(--ok-soft);stroke:var(--ok)}
+svg .boxbad{fill:var(--bad-soft);stroke:var(--bad)}
+svg .ln{stroke:var(--muted);fill:none;stroke-width:1.4}
+svg .lna{stroke:var(--accent);fill:none;stroke-width:1.6}
+svg .lnd{stroke:var(--muted);fill:none;stroke-width:1.2;stroke-dasharray:4 4}
+svg .sm{font-size:11.5px;fill:var(--muted)}
+svg .life{stroke:var(--border);stroke-dasharray:3 4}
+ul.tight{margin:4px 0 12px;padding-left:20px} ul.tight li{margin-bottom:3px}
+.phase{display:grid;grid-template-columns:120px 1fr;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.phase .t{font-family:var(--mono);font-size:12.5px;color:var(--accent);font-weight:600}
+.phase ul{margin:4px 0 0;padding-left:18px;font-size:14px}
+.phase .done{font-size:13px;color:var(--muted);margin-top:6px}
+button.theme{position:fixed;top:14px;right:14px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer}
+@media (max-width: 860px){
+  .layout{grid-template-columns:1fr;padding:20px 16px 60px;gap:0}
+  nav.toc{display:none}
+  h1{font-size:26px}
+  .phase{grid-template-columns:1fr;gap:4px}
+}
+</style>
+</head>
+<body>
+<button class="theme" onclick="toggleTheme()" aria-label="Toggle colour theme">◐ Theme</button>
+<div class="layout">
+<nav class="toc" aria-label="Contents">
+  <div class="grp">Overview</div>
+  <a href="#summary">Summary</a>
+  <a href="#scope">Scope</a>
+  <a href="#facts">Provider facts</a>
+  <a href="#decisions">Key decisions</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#flows">Request lifecycle</a>
+  <a href="#states">Status machine</a>
+  <div class="grp">Detail</div>
+  <a href="#money">Money &amp; pricing</a>
+  <a href="#schema">Schema</a>
+  <a href="#submit">Submission</a>
+  <a href="#statemachine">State transitions</a>
+  <a href="#webhooks">Webhooks</a>
+  <a href="#redis">Redis: queues &amp; limits</a>
+  <a href="#ledger">Ledger &amp; balances</a>
+  <a href="#images">Image storage</a>
+  <a href="#ui">UI / UX</a>
+  <a href="#admin">Admin report</a>
+  <a href="#layout">Code layout</a>
+  <div class="grp">Delivery</div>
+  <a href="#edge">Failure matrix</a>
+  <a href="#tests">Tests</a>
+  <a href="#deploy">Deployment</a>
+  <a href="#timeline">Build order</a>
+  <a href="#interview">Interview notes</a>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Senior Product Engineer · Take-home</div>
+  <h1>PromptEdit × Pixelforge: build plan</h1>
+  <p class="muted">Laravel + Inertia + Vue. Users generate images through Pixelforge and pay its cost plus 25%. Every cost is recorded exactly once, failed generations are free, and duplicate or out-of-order webhooks can't corrupt state.</p>
+</header>
+
+<section id="summary">
+<h2>Summary</h2>
+<div class="cards">
+  <div class="card"><h4>Exact money</h4><p>Integer nano-dollars (10⁻⁹ USD) in <code>bigint</code>. No floats.</p></div>
+  <div class="card"><h4>Never charged twice</h4><p>Ledger with <code>UNIQUE(generation_id, type)</code>, enforced by the database.</p></div>
+  <div class="card"><h4>Forward-only state</h4><p>One transition service for webhooks and polling.</p></div>
+  <div class="card"><h4>Honest estimates</h4><p>Show a min–max range and hold the max. Users are never charged more than they were shown.</p></div>
+  <div class="card"><h4>Resilient submission</h4><p>Redis queue, a stable <code>Idempotency-Key</code>, and shared Redis rate limiting.</p></div>
+  <div class="card"><h4>Reconcilable</h4><p>Costs booked on the UTC completion day, matching <code>/v1/usage</code>.</p></div>
+</div>
+</section>
+
+<section id="scope">
+<h2>Scope</h2>
+<div class="tw"><table>
+<thead><tr><th>Item</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>Generate page with live estimate</td><td><span class="pill p-acc">Required</span></td></tr>
+<tr><td>Pricing: cost + 25%, estimate vs actual, failed = free</td><td><span class="pill p-acc">Required</span></td></tr>
+<tr><td>History with live status, both costs, image</td><td><span class="pill p-acc">Required</span></td></tr>
+<tr><td>Signed, idempotent, order-safe webhooks</td><td><span class="pill p-acc">Required</span></td></tr>
+<tr><td>Public deployment</td><td><span class="pill p-acc">Required</span></td></tr>
+<tr><td>Balances + Buy credits + block when unaffordable</td><td><span class="pill p-ok">Committed stretch</span></td></tr>
+<tr><td>$2 welcome credit</td><td><span class="pill p-ok">Committed stretch</span></td></tr>
+<tr><td>Admin report (per day / per user) with <code>/v1/usage</code> reconciliation</td><td><span class="pill p-ok">Committed stretch</span></td></tr>
+<tr><td>Store image copies (beat the 24 h URL expiry)</td><td><span class="pill p-ok">Committed stretch</span></td></tr>
+<tr><td>Websockets (Reverb)</td><td><span class="pill p-mut">Out of scope</span>; polling is enough</td></tr>
+</tbody></table></div>
+</section>
+
+<div class="part">Part 1 · High level</div>
+
+<section id="facts">
+<h2>Provider facts</h2>
+<div class="tw"><table>
+<thead><tr><th>Area</th><th>Fact</th><th>Consequence</th></tr></thead>
+<tbody>
+<tr><td>Async</td><td>202 <code>queued</code> → <code>processing</code> → <code>succeeded</code> | <code>failed</code></td><td>Local row first; webhooks plus polling</td></tr>
+<tr><td>Rates / 1M</td><td>text $5 · image $10 · output $40 · reasoning $12.50; fixed per generation</td><td>Actual cost uses the generation's own <code>rates</code></td></tr>
+<tr><td>Known upfront</td><td>Output tokens (size × quality); 765 per reference image</td><td>Exact part of the estimate</td></tr>
+<tr><td>Known after</td><td>Text ≈ <code>ceil(chars/4)</code> ±15%; reasoning range by quality</td><td>Estimate is a range</td></tr>
+<tr><td>Limits</td><td>60 req/min · 3 concurrent · 500/day per <b>account</b>; random 503</td><td>Redis throttle, retries, "waiting for capacity"</td></tr>
+<tr><td>Idempotency</td><td><code>Idempotency-Key</code>, never expires</td><td>Safe retry after a timeout</td></tr>
+<tr><td>Webhooks</td><td>At least once, out of order, may beat the 202. HMAC-SHA256 of <code>t.body</code>; 2xx within 10 s</td><td>Verify → deduplicate → apply forward-only</td></tr>
+<tr><td>Usage</td><td>Per key, per UTC <b>completion</b> day, 9 decimals</td><td>Report groups by <code>completed_at</code></td></tr>
+<tr><td>Images</td><td>URL expires 24 h after completion</td><td>Copy to object storage</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="decisions">
+<h2>Key decisions</h2>
+<div class="tw"><table>
+<thead><tr><th>#</th><th>Decision</th><th>Why</th><th>Rejected</th></tr></thead>
+<tbody>
+<tr><td>D1</td><td>Integer nano-dollars</td><td>Provider precision is 9 decimals; rates per token are whole numbers (5,000 / 10,000 / 40,000 / 12,500), each divisible by 4, so ×1.25 is exact</td><td>Floats; <code>decimal</code> arithmetic in PHP</td></tr>
+<tr><td>D2</td><td>Show a range, hold the max</td><td>Never charge more than shown; safe balance checks</td><td>Midpoint estimate</td></tr>
+<tr><td>D3</td><td>Ledger, <code>UNIQUE(generation_id, type)</code></td><td>Exactly-once enforced by the database</td><td>A <code>charged</code> flag (racy)</td></tr>
+<tr><td>D4</td><td>One <code>GenerationStateMachine::apply()</code></td><td>Webhooks and polling share one tested path</td><td>Separate handlers</td></tr>
+<tr><td>D5</td><td>Local row first, queued submit job</td><td>Retries don't block requests; crashes can be re-run safely</td><td>Calling the provider synchronously in the controller</td></tr>
+<tr><td>D6</td><td>Key = ULID = <code>metadata.local_id</code></td><td>Safe retries; early webhooks can be matched</td><td>A new key per attempt</td></tr>
+<tr><td>D7</td><td><b>Redis</b> for queue, cache, locks and the rate limiter</td><td>Fast queue, atomic throttle shared by all workers, priority queues</td><td>DB queue (no shared throttle); Reverb</td></tr>
+<tr><td>D8</td><td>UI polls with Inertia partial reloads (2.5 s)</td><td>Simple; nothing extra to deploy</td><td>Websockets</td></tr>
+<tr><td>D9</td><td>Server-side estimate via debounced <code>POST /estimate</code></td><td>Pricing logic exists only once</td><td>Mirroring it in JS</td></tr>
+<tr><td>D10</td><td>UTC everywhere; store the provider's <code>completed_at</code></td><td>Matches the usage buckets</td><td>Local receive time</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="architecture">
+<h2>Architecture</h2>
+<figure>
+<svg viewBox="0 0 900 400" width="100%" role="img" aria-label="Architecture diagram">
+  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" style="fill:var(--muted)"/></marker></defs>
+  <rect class="box" x="20" y="150" width="140" height="90" rx="8"/>
+  <text x="90" y="185" text-anchor="middle" font-weight="600">Browser</text>
+  <text x="90" y="205" text-anchor="middle" class="sm">Vue 3 + Inertia</text>
+  <text x="90" y="222" text-anchor="middle" class="sm">polls every 2.5 s</text>
+  <rect class="boxa" x="220" y="30" width="400" height="340" rx="10"/>
+  <text x="240" y="54" font-weight="600">Laravel app</text>
+  <rect class="box" x="240" y="70" width="170" height="54" rx="6"/>
+  <text x="325" y="93" text-anchor="middle" font-size="13">Controllers</text>
+  <text x="325" y="111" text-anchor="middle" class="sm">pages · estimate · admin</text>
+  <rect class="box" x="430" y="70" width="170" height="54" rx="6"/>
+  <text x="515" y="93" text-anchor="middle" font-size="13">Webhook controller</text>
+  <text x="515" y="111" text-anchor="middle" class="sm">verify sig · dedupe</text>
+  <rect class="box" x="240" y="150" width="170" height="54" rx="6"/>
+  <text x="325" y="173" text-anchor="middle" font-size="13">Pricing / Money</text>
+  <text x="325" y="191" text-anchor="middle" class="sm">estimate · actual · markup</text>
+  <rect class="box" x="430" y="150" width="170" height="54" rx="6"/>
+  <text x="515" y="173" text-anchor="middle" font-size="13">State machine</text>
+  <text x="515" y="191" text-anchor="middle" class="sm">forward-only · settles</text>
+  <rect class="box" x="240" y="230" width="170" height="54" rx="6"/>
+  <text x="325" y="253" text-anchor="middle" font-size="13">Queue jobs</text>
+  <text x="325" y="271" text-anchor="middle" class="sm">submit · sync · images</text>
+  <rect class="box" x="430" y="230" width="170" height="54" rx="6"/>
+  <text x="515" y="253" text-anchor="middle" font-size="13">Ledger</text>
+  <text x="515" y="271" text-anchor="middle" class="sm">hold · charge · release</text>
+  <rect class="box" x="240" y="305" width="170" height="48" rx="6"/>
+  <text x="325" y="326" text-anchor="middle" font-size="13">Postgres</text>
+  <text x="325" y="342" text-anchor="middle" class="sm">generations · ledger · events</text>
+  <rect class="box" x="430" y="305" width="170" height="48" rx="6"/>
+  <text x="515" y="326" text-anchor="middle" font-size="13">Redis</text>
+  <text x="515" y="342" text-anchor="middle" class="sm">queues · cache · throttle · locks</text>
+  <rect class="box" x="700" y="90" width="180" height="170" rx="8"/>
+  <text x="790" y="120" text-anchor="middle" font-weight="600">Pixelforge</text>
+  <text x="790" y="145" text-anchor="middle" class="sm">POST /v1/generations</text>
+  <text x="790" y="163" text-anchor="middle" class="sm">GET /v1/generations/{id}</text>
+  <text x="790" y="181" text-anchor="middle" class="sm">GET /v1/pricing</text>
+  <text x="790" y="199" text-anchor="middle" class="sm">GET /v1/usage</text>
+  <text x="790" y="230" text-anchor="middle" class="sm">webhooks →</text>
+  <rect class="box" x="700" y="295" width="180" height="58" rx="8"/>
+  <text x="790" y="320" text-anchor="middle" font-size="13">Object storage</text>
+  <text x="790" y="338" text-anchor="middle" class="sm">image copies (S3-compatible)</text>
+  <path class="ln" d="M160,180 L240,100" marker-end="url(#ah)"/>
+  <path class="lnd" d="M240,110 L160,205" marker-end="url(#ah)"/>
+  <path class="lna" d="M410,270 L420,270 L420,294 L650,294 L650,215 L700,215" marker-end="url(#ah)"/>
+  <text x="656" y="250" class="sm">submit /</text>
+  <text x="656" y="265" class="sm">poll</text>
+  <path class="lna" d="M700,120 C660,110 640,100 600,97" marker-end="url(#ah)"/>
+  <text x="628" y="88" class="sm">events</text>
+  <path class="ln" d="M620,330 L700,325" marker-end="url(#ah)"/>
+  <path class="ln" d="M515,124 L515,150" marker-end="url(#ah)"/>
+  <path class="ln" d="M515,204 L515,230" marker-end="url(#ah)"/>
+  <path class="ln" d="M410,177 L430,177" marker-end="url(#ah)"/>
+</svg>
+<figcaption>Processes: <b>web</b> (Inertia, estimates, webhooks), <b>worker</b> (<code>queue:work redis --queue=webhooks,submissions,default</code>), <b>scheduler</b> (reconciliation every minute).</figcaption>
+</figure>
+</section>
+
+<section id="flows">
+<h2>Request lifecycle</h2>
+<figure>
+<svg viewBox="0 0 900 560" width="100%" role="img" aria-label="Sequence diagram of a generation">
+  <defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" style="fill:var(--muted)"/></marker></defs>
+  <g font-size="13" font-weight="600">
+    <rect class="box" x="20" y="10" width="130" height="34" rx="6"/><text x="85" y="32" text-anchor="middle">User / Vue</text>
+    <rect class="boxa" x="215" y="10" width="130" height="34" rx="6"/><text x="280" y="32" text-anchor="middle">Laravel web</text>
+    <rect class="box" x="410" y="10" width="130" height="34" rx="6"/><text x="475" y="32" text-anchor="middle">Redis worker</text>
+    <rect class="box" x="605" y="10" width="130" height="34" rx="6"/><text x="670" y="32" text-anchor="middle">Postgres</text>
+    <rect class="box" x="770" y="10" width="115" height="34" rx="6"/><text x="827" y="32" text-anchor="middle">Pixelforge</text>
+  </g>
+  <line class="life" x1="85" y1="44" x2="85" y2="550"/><line class="life" x1="280" y1="44" x2="280" y2="550"/>
+  <line class="life" x1="475" y1="44" x2="475" y2="550"/><line class="life" x1="670" y1="44" x2="670" y2="550"/>
+  <line class="life" x1="827" y1="44" x2="827" y2="550"/>
+  <g font-size="12">
+  <path class="ln" d="M85,72 L280,72" marker-end="url(#ah2)"/><text x="182" y="66" text-anchor="middle">POST /estimate (debounced)</text>
+  <path class="lnd" d="M280,92 L85,92" marker-end="url(#ah2)"/><text x="182" y="88" text-anchor="middle" class="sm">min–max breakdown</text>
+  <path class="ln" d="M85,124 L280,124" marker-end="url(#ah2)"/><text x="182" y="118" text-anchor="middle">POST /generations</text>
+  <path class="ln" d="M280,148 L670,148" marker-end="url(#ah2)"/><text x="475" y="142" text-anchor="middle">TX: lock user · check balance · insert gen(pending) · ledger HOLD</text>
+  <path class="lnd" d="M280,170 L85,170" marker-end="url(#ah2)"/><text x="182" y="166" text-anchor="middle" class="sm">redirect → history</text>
+  <path class="ln" d="M280,192 L475,192" marker-end="url(#ah2)"/><text x="378" y="188" text-anchor="middle" class="sm">SubmitGeneration (after commit)</text>
+  <path class="lna" d="M475,222 L827,222" marker-end="url(#ah2)"/><text x="651" y="216" text-anchor="middle">POST /v1/generations · Idempotency-Key: {ulid}</text>
+  <path class="lnd" d="M827,244 L475,244" marker-end="url(#ah2)"/><text x="651" y="240" text-anchor="middle" class="sm">202 queued (or 429 / 503 → release job, retry)</text>
+  <path class="ln" d="M475,264 L670,264" marker-end="url(#ah2)"/><text x="572" y="260" text-anchor="middle" class="sm">apply(): provider_id, queued, rates</text>
+  <path class="lna" d="M827,300 L280,300" marker-end="url(#ah2)"/><text x="560" y="294" text-anchor="middle">webhook generation.processing (signed)</text>
+  <path class="ln" d="M280,322 L670,322" marker-end="url(#ah2)"/><text x="475" y="318" text-anchor="middle" class="sm">insertOrIgnore webhook_events(evt_id) → 200 · dispatch ProcessWebhookEvent</text>
+  <path class="lna" d="M827,362 L280,362" marker-end="url(#ah2)"/><text x="560" y="356" text-anchor="middle">webhook generation.succeeded (usage, rates, image_url)</text>
+  <path class="ln" d="M475,392 L670,392" marker-end="url(#ah2)"/><text x="572" y="386" text-anchor="middle" class="sm">TX lock gen → cost → CHARGE + RELEASE</text>
+  <path class="lnd" d="M827,424 L280,424" marker-end="url(#ah2)"/><text x="560" y="418" text-anchor="middle" class="sm">duplicate / late "processing" → no-op 200</text>
+  <path class="ln" d="M85,460 L280,460" marker-end="url(#ah2)"/><text x="182" y="454" text-anchor="middle">partial reload (polling)</text>
+  <path class="lnd" d="M280,482 L85,482" marker-end="url(#ah2)"/><text x="182" y="478" text-anchor="middle" class="sm">status · est vs actual · image</text>
+  <path class="lnd" d="M475,520 L827,520" marker-end="url(#ah2)"/><text x="651" y="514" text-anchor="middle" class="sm">fallback: scheduler GET /v1/generations/{id} if stale</text>
+  </g>
+</svg>
+<figcaption>A webhook that arrives before the 202 is stored is matched by <code>metadata.local_id</code>.</figcaption>
+</figure>
+</section>
+
+<section id="states">
+<h2>Status machine</h2>
+<figure>
+<svg viewBox="0 0 860 216" width="100%" role="img" aria-label="Generation status machine">
+  <defs><marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" style="fill:var(--muted)"/></marker></defs>
+  <rect class="box" x="20" y="80" width="130" height="50" rx="25"/><text x="85" y="102" text-anchor="middle" font-weight="600">pending</text><text x="85" y="119" text-anchor="middle" class="sm">rank 0 · local only</text>
+  <rect class="box" x="220" y="80" width="130" height="50" rx="25"/><text x="285" y="102" text-anchor="middle" font-weight="600">queued</text><text x="285" y="119" text-anchor="middle" class="sm">rank 1</text>
+  <rect class="box" x="420" y="80" width="130" height="50" rx="25"/><text x="485" y="102" text-anchor="middle" font-weight="600">processing</text><text x="485" y="119" text-anchor="middle" class="sm">rank 2</text>
+  <rect class="boxok" x="660" y="20" width="160" height="50" rx="25"/><text x="740" y="42" text-anchor="middle" font-weight="600">succeeded</text><text x="740" y="59" text-anchor="middle" class="sm">final · CHARGE + RELEASE</text>
+  <rect class="boxbad" x="660" y="140" width="160" height="50" rx="25"/><text x="740" y="162" text-anchor="middle" font-weight="600">failed</text><text x="740" y="179" text-anchor="middle" class="sm">final · RELEASE · $0</text>
+  <path class="ln" d="M150,105 L220,105" marker-end="url(#ah3)"/>
+  <path class="ln" d="M350,105 L420,105" marker-end="url(#ah3)"/>
+  <path class="ln" d="M550,98 L660,50" marker-end="url(#ah3)"/>
+  <path class="ln" d="M550,112 L660,160" marker-end="url(#ah3)"/>
+  <path class="lnd" d="M85,130 C85,200 560,200 660,172" marker-end="url(#ah3)"/>
+  <text x="300" y="210" class="sm">rejected at submit: content policy · daily limit · retries exhausted</text>
+  <path class="lnd" d="M285,80 C285,20 560,20 660,40" marker-end="url(#ah3)"/>
+  <text x="380" y="14" class="sm">events can skip states (e.g. succeeded with no processing)</text>
+</svg>
+<figcaption>Apply an update only if <code>rank(new) &gt; rank(current)</code>. Both final states have rank 3, so neither can replace the other.</figcaption>
+</figure>
+</section>
+
+<div class="part">Part 2 · Low level</div>
+
+<section id="money">
+<h2>Money &amp; pricing</h2>
+<p><b>Unit:</b> <code>1 = $0.000000001</code>. A rate of <code>$R per 1M tokens</code> = <code>R × 1000</code> nano-dollars per token. User price = <code>ceil(cost × 125 / 100)</code>, which is exact at today's rates.</p>
+<div class="tw"><table>
+<thead><tr><th>Output tokens</th><th class="num">1024×1024</th><th class="num">1536×1024</th><th class="num">1024×1536</th><th class="num">Reasoning</th></tr></thead>
+<tbody>
+<tr><td>low</td><td class="num">280</td><td class="num">420</td><td class="num">420</td><td class="num">0 – 500</td></tr>
+<tr><td>medium</td><td class="num">1,100</td><td class="num">1,650</td><td class="num">1,650</td><td class="num">200 – 2,000</td></tr>
+<tr><td>high</td><td class="num">4,300</td><td class="num">6,450</td><td class="num">6,450</td><td class="num">1,000 – 8,000</td></tr>
+</tbody></table></div>
+<details><summary>Estimate &amp; actual-cost algorithms</summary>
+<pre><span class="cm">// Estimate — rates from GET /v1/pricing (cached 1 h in Redis)</span>
+chars    = mb_strlen(prompt, 'UTF-8')                <span class="cm">// Unicode chars, not bytes</span>
+textEst  = ceil(chars / 4)
+textMin  = floor(textEst * 0.85)   textMax = ceil(textEst * 1.15)
+fixed    = 765*refs*rI + OUTPUT[q][size]*rO          <span class="cm">// exact part</span>
+costMin  = fixed + textMin*rT + REASON[q].min*rR
+costMax  = fixed + textMax*rT + REASON[q].max*rR
+priceMin = markup(costMin)   priceMax = markup(costMax)  <span class="cm">// priceMax is held</span>
+
+<span class="cm">// Actual — rates from the generation object itself</span>
+cost  = Σ usage[k] * nano(gen.rates[k])   for k in text, image, output, reasoning
+price = markup(cost)</pre>
+</details>
+<div class="tw"><table>
+<thead><tr><th>Worked example</th><th class="num">Provider $</th><th class="num">User $</th></tr></thead>
+<tbody>
+<tr><td>Docs usage row (41 text, 3,300 out, 2,950 reasoning)</td><td class="num">0.169080000</td><td class="num">0.211350000</td></tr>
+<tr><td>Docs max (high 1536×1024, 400 chars, 2 refs)</td><td class="num">0.373875000</td><td class="num">0.467343750</td></tr>
+<tr><td>Default medium 1024², 100 chars: min</td><td class="num">0.046605000</td><td class="num">0.058256250</td></tr>
+<tr><td>Default medium 1024², 100 chars: max</td><td class="num">0.069145000</td><td class="num">0.086431250</td></tr>
+</tbody></table></div>
+<p class="muted">Display: 4 decimals in lists; exact 9 decimals in detail views and the admin report.</p>
+</section>
+
+<section id="schema">
+<h2>Schema</h2>
+<div class="tw"><table>
+<thead><tr><th>Table</th><th>Key columns</th><th>Constraints</th></tr></thead>
+<tbody>
+<tr><td><code>users</code></td><td>+ <code>is_admin</code>, <code>balance_nano</code> (cached ledger sum)</td><td></td></tr>
+<tr><td><code>generations</code></td><td><code>id</code> ULID · <code>user_id</code> · <code>provider_id</code> · <code>status</code> · prompt/size/quality/<code>reference_images</code> · <code>est_cost_{min,max}_nano</code> · <code>est_price_{min,max}_nano</code> · <code>rates</code> json · 4× token columns · <code>provider_cost_nano</code> · <code>price_nano</code> · <code>image_url</code>, <code>image_url_expires_at</code>, <code>image_path</code> · <code>error_code</code>, <code>error_message</code> · <code>submit_attempts</code>, <code>last_synced_at</code> · <code>started_at</code>, <code>completed_at</code> (provider)</td><td><code>provider_id</code> unique; idx <code>(user_id, created_at)</code>, <code>(status, last_synced_at)</code>, <code>(completed_at)</code></td></tr>
+<tr><td><code>ledger_entries</code></td><td><code>user_id</code> · <code>generation_id</code>? · <code>type</code> (grant, purchase, hold, release, charge) · <code>amount_nano</code> (signed) · <code>provider_cost_nano</code>? · <code>idempotency_key</code>? · <code>occurred_at</code></td><td><b>UNIQUE(generation_id, type)</b>; <code>idempotency_key</code> unique</td></tr>
+<tr><td><code>webhook_events</code></td><td><code>event_id</code> · <code>type</code> · <code>provider_generation_id</code> · <code>payload</code> · <code>attempts_seen</code> · <code>processed_at</code></td><td><code>event_id</code> unique</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="submit">
+<h2>Submission</h2>
+<p><b>Web request:</b> validate (prompt ≤ 4,000 chars, allowed size and quality, ≤ 4 http(s) URLs) → estimate on the server → in a transaction, <code>lockForUpdate</code> the user, check <code>balance ≥ priceMax</code>, insert the <code>pending</code> generation and write the HOLD → <code>SubmitGeneration::dispatch()->afterCommit()</code>.</p>
+<p><b>Job</b> (queue <code>submissions</code>, <code>retryUntil</code> 15 min, unique per generation; no-op if no longer <code>pending</code>):</p>
+<div class="tw"><table>
+<thead><tr><th>Outcome</th><th>Action</th><th>User sees</th></tr></thead>
+<tbody>
+<tr><td><span class="pill p-ok">202</span> (incl. replay)</td><td><code>apply(payload)</code></td><td>Queued</td></tr>
+<tr><td><span class="pill p-warn">429</span> concurrency</td><td><code>release(Retry-After ?? 5)</code></td><td>Waiting for capacity</td></tr>
+<tr><td><span class="pill p-warn">429</span> rate limit</td><td><code>release(Retry-After + jitter)</code></td><td>Waiting for capacity</td></tr>
+<tr><td><span class="pill p-warn">503</span> overloaded</td><td><code>release(min(2·2ⁿ, 60) + jitter)</code></td><td>Provider busy, retrying</td></tr>
+<tr><td>Timeout / connection error / 5xx</td><td>Retry with the <b>same</b> key</td><td>Submitting…</td></tr>
+<tr><td><span class="pill p-bad">400</span> content policy</td><td>Fail locally + RELEASE</td><td>Blocked by policy. Not charged.</td></tr>
+<tr><td><span class="pill p-bad">429</span> daily limit</td><td>Fail locally + RELEASE</td><td>Daily limit; resets 00:00 UTC.</td></tr>
+<tr><td><span class="pill p-bad">422 / 409 / 401</span></td><td>Fail + RELEASE + <code>report()</code></td><td>Error on our side. Not charged.</td></tr>
+<tr><td>Window exhausted</td><td>Fail (<code>local.retries_exhausted</code>) + RELEASE</td><td>Too busy. Not charged.</td></tr>
+</tbody></table></div>
+<div class="callout warn">Fail locally only on <b>definitive</b> rejections, which create nothing at the provider. An ambiguous timeout is always retried with the same key, never marked failed.</div>
+</section>
+
+<section id="statemachine">
+<h2>State transitions</h2>
+<ul class="tight">
+  <li>Find the generation by <code>provider_id</code> <i>or</i> <code>metadata.local_id</code>, with <code>lockForUpdate</code> inside a transaction.</li>
+  <li>Fill in <code>provider_id</code> if it's missing (the early-webhook case).</li>
+  <li>If the current status is final or <code>rank(new) ≤ rank(current)</code>, stop: no-op.</li>
+  <li><b>Succeeded:</b> store tokens, cost and price → ledger RELEASE + CHARGE → dispatch <code>StoreGenerationImage</code> after commit.</li>
+  <li><b>Failed:</b> store the error, price = 0 → ledger RELEASE.</li>
+</ul>
+<details><summary>Sketch</summary>
+<pre><span class="kw">public function</span> apply(GenerationPayload $p): void
+{
+    DB::transaction(<span class="kw">function</span> () <span class="kw">use</span> ($p) {
+        $g = Generation::where('provider_id', $p->id)
+            ->orWhere('id', $p->metadata['local_id'] ?? null)
+            ->lockForUpdate()->firstOrFail();
+        $g->provider_id ??= $p->id;
+        <span class="kw">if</span> ($g->status->isFinal() || $p->status->rank() &lt;= $g->status->rank()) {
+            $g->save(); <span class="kw">return</span>;
+        }
+        $g->fill($p->timestampsAndRates());
+        <span class="kw">match</span> ($p->status) {
+            Status::Succeeded => $this->settleSuccess($g, $p),
+            Status::Failed    => $this->settleFailure($g, $p),
+            <span class="kw">default</span>           => <span class="kw">null</span>,
+        };
+        $g->save();
+    });
+}</pre>
+</details>
+<p class="muted">Three independent guards: event-id deduplication, the rank check under a row lock, and the ledger's unique index.</p>
+</section>
+
+<section id="webhooks">
+<h2>Webhooks</h2>
+<ul class="tight">
+  <li><code>POST /webhooks/pixelforge</code>, CSRF-exempt, no session.</li>
+  <li>Parse <code>Pixelforge-Signature: t=…,v1=…</code>. Reject if <code>|now − t| &gt; 300</code> or no <code>hash_equals(hmac_sha256("t.rawBody", secret), v1)</code> → 400.</li>
+  <li><code>ping</code> → 200.</li>
+  <li><code>insertOrIgnore</code> into <code>webhook_events</code>. A duplicate increments <code>attempts_seen</code> and returns 200.</li>
+  <li>Dispatch <code>ProcessWebhookEvent</code> on the high-priority <code>webhooks</code> queue and return <b>200 at once</b>.</li>
+</ul>
+</section>
+
+<section id="redis">
+<h2>Redis: queues, limits, polling</h2>
+<div class="tw"><table>
+<thead><tr><th>Use</th><th>How</th></tr></thead>
+<tbody>
+<tr><td>Queues</td><td><code>QUEUE_CONNECTION=redis</code>. Priority: <code>webhooks</code> &gt; <code>submissions</code> &gt; <code>default</code> (sync, images).</td></tr>
+<tr><td>Request budget</td><td><code>Redis::throttle('pixelforge:rpm')->allow(50)->every(60)</code> around <b>every</b> API call, from all workers. Leaves headroom for the local key, which shares the account limit.</td></tr>
+<tr><td>Concurrency</td><td>Before submitting: if ≥ 3 generations are <code>queued</code> or <code>processing</code> in the DB, <code>release(5)</code>. The provider's 429 remains the final authority.</td></tr>
+<tr><td>Cache</td><td><code>/v1/pricing</code> (1 h), <code>/v1/usage</code> (5 min).</td></tr>
+<tr><td>Locks</td><td>Scheduler <code>withoutOverlapping()->onOneServer()</code>; unique jobs.</td></tr>
+<tr><td>Polling</td><td><code>ReconcileGenerations</code> every minute: generations in flight with no update for 60 s → <code>SyncGeneration</code> (max 20 per run); <code>pending</code> &gt; 2 min → re-dispatch the submit; unprocessed events &gt; 2 min → re-dispatch.</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="ledger">
+<h2>Ledger &amp; balances</h2>
+<div class="tw"><table>
+<thead><tr><th>Event</th><th>Entry</th><th class="num">Amount</th></tr></thead>
+<tbody>
+<tr><td>Sign up</td><td>grant</td><td class="num">+$2.00</td></tr>
+<tr><td>Buy credits ($5 / $10 / $25)</td><td>purchase (form idempotency key)</td><td class="num">+X</td></tr>
+<tr><td>Submit</td><td>hold</td><td class="num">−priceMax</td></tr>
+<tr><td>Succeeded</td><td>release + charge</td><td class="num">+priceMax −price</td></tr>
+<tr><td>Failed</td><td>release</td><td class="num">+priceMax</td></tr>
+</tbody></table></div>
+<p>Each write: a transaction, lock the user row, insert the entry, increment <code>balance_nano</code>. A unique-constraint violation means it was already applied, so it's a no-op. <code>php artisan ledger:verify</code> asserts <code>balance == SUM(entries)</code>.</p>
+</section>
+
+<section id="images">
+<h2>Image storage</h2>
+<ul class="tight">
+  <li><code>StoreGenerationImage</code> (queue <code>default</code>, 5 tries with backoff): download <code>image_url</code> → <code>generations/{ulid}.png</code> on a private S3-compatible disk → set <code>image_path</code>.</li>
+  <li>Served through an authorised route <code>/generations/{id}/image</code> (owner or admin), which redirects to a short-lived <code>temporaryUrl</code>.</li>
+  <li>If the copy hasn't been made yet, fall back to the provider URL until <code>image_url_expires_at</code>, then show an "Image expired" placeholder.</li>
+  <li>Download failure never affects billing; it's a separate job after commit.</li>
+</ul>
+</section>
+
+<section id="ui">
+<h2>UI / UX</h2>
+<div class="cards">
+  <div class="card"><h4>Generate</h4><p>Prompt with a code-point counter · size as a segmented control with aspect thumbnails · quality with typical price · up to 4 reference URLs (+765 tokens · +$0.0096 each) · sticky cost panel: <b>$0.058 – $0.086</b>, breakdown, "never more than $0.086", balance after · submit disabled with a reason when funds are short.</p></div>
+  <div class="card"><h4>History</h4><p>Cards, newest first: thumbnail, prompt, settings, badge, "Est. up to $0.086 · <b>Charged $0.071</b>" or "Free, generation failed", human error message, <b>Try again</b>. Polls every 2.5 s only while something is in flight and the tab is visible.</p></div>
+  <div class="card"><h4>Credits</h4><p>Available vs reserved balance · $5 / $10 / $25 buttons · ledger table with a running balance.</p></div>
+</div>
+<p>
+  <span class="pill p-mut">Submitting</span> <span class="pill p-warn">Waiting for capacity</span> <span class="pill p-acc">Queued</span> <span class="pill p-acc">Processing</span> <span class="pill p-ok">Succeeded</span> <span class="pill p-bad">Failed</span>
+</p>
+<details><summary>Error message map</summary>
+<div class="inner"><div class="tw"><table><thead><tr><th>Code</th><th>Message</th></tr></thead><tbody>
+<tr><td>generation_failed</td><td>The model couldn't create an image for this prompt. You weren't charged.</td></tr>
+<tr><td>internal_error</td><td>Pixelforge hit an internal error. You weren't charged. Trying again usually works.</td></tr>
+<tr><td>content_policy_violation</td><td>This prompt was blocked by the content policy. You weren't charged.</td></tr>
+<tr><td>local.daily_limit</td><td>We've hit today's generation limit. It resets at 00:00 UTC.</td></tr>
+<tr><td>local.retries_exhausted</td><td>Pixelforge was too busy to accept this for 15 minutes. You weren't charged.</td></tr>
+</tbody></table></div></div>
+</details>
+</section>
+
+<section id="admin">
+<h2>Admin report</h2>
+<ul class="tight">
+  <li><code>/admin/report?start&amp;end</code>, gated by <code>is_admin</code>. Default 30 days, maximum 92.</li>
+  <li><b>By day</b> (UTC <code>completed_at</code>) and <b>by user</b>: generations, tokens, provider cost, credit spend, profit, margin, failed count.</li>
+  <li><b>Reconciliation</b>: <code>/v1/usage</code> for the same range next to our per-day totals → <span class="pill p-ok">✓ match</span> or <span class="pill p-bad">Δ $x</span>, compared as integers.</li>
+</ul>
+<details><summary>Query sketch</summary>
+<pre>SELECT DATE(completed_at) AS day, COUNT(*) AS generations,
+       SUM(input_text_tokens), SUM(input_image_tokens), SUM(output_tokens), SUM(reasoning_tokens),
+       SUM(provider_cost_nano) AS provider_cost, SUM(price_nano) AS credit_spend,
+       SUM(price_nano - provider_cost_nano) AS profit
+FROM generations
+WHERE status = 'succeeded' AND completed_at &gt;= :start AND completed_at &lt; :end_plus_1
+GROUP BY day ORDER BY day;   <span class="cm">-- by user: GROUP BY user_id</span></pre>
+</details>
+</section>
+
+<section id="layout">
+<h2>Code layout</h2>
+<details><summary>Directory tree</summary>
+<pre>app/
+  Enums/         GenerationStatus (rank, isFinal) · LedgerType · Quality · Size
+  Support/       Money
+  Pricing/       PricingCatalog · CostEstimator · CostCalculator · Estimate (DTO)
+  Pixelforge/    PixelforgeClient · GenerationPayload · SignatureVerifier · Exceptions/*
+  Generations/   GenerationStateMachine · CreateGeneration (action)
+  Billing/       Ledger
+  Jobs/          SubmitGeneration · ProcessWebhookEvent · SyncGeneration · ReconcileGenerations · StoreGenerationImage
+  Http/          GenerationController · EstimateController · PixelforgeWebhookController
+                 GenerationImageController · CreditsController · Admin/ReportController
+resources/js/
+  pages/         Generate · Generations/Index · Credits · Admin/Report
+  components/    CostBreakdown · StatusBadge · GenerationCard · MoneyAmount · RefUrlList
+  composables/   useEstimate · usePollWhile
+tests/Unit       Money · CostEstimator · CostCalculator · SignatureVerifier
+tests/Feature    Webhook · SubmitGeneration · StateMachine · Ledger · Report · ImageStorage</pre>
+</details>
+</section>
+
+<div class="part">Part 3 · Delivery</div>
+
+<section id="edge">
+<h2>Failure matrix</h2>
+<div class="tw"><table>
+<thead><tr><th>Scenario</th><th>Trigger</th><th>Expected</th></tr></thead>
+<tbody>
+<tr><td>Duplicate webhook</td><td><code>[duplicate]</code>, dashboard resend</td><td>One charge, 200 no-op</td></tr>
+<tr><td>Out of order</td><td>Resend <code>processing</code> after success</td><td>Stays succeeded</td></tr>
+<tr><td>Webhook before 202</td><td>Fake in tests</td><td>Matched by <code>local_id</code></td></tr>
+<tr><td>Webhook lost</td><td>Wrong webhook URL</td><td>Settled by polling in ≤ 2 min</td></tr>
+<tr><td>Fails after acceptance</td><td><code>[fail]</code></td><td>Failed, $0, hold released</td></tr>
+<tr><td>Content policy</td><td><code>[blocked]</code></td><td>Failed right away, $0</td></tr>
+<tr><td>Overloaded</td><td><code>[overloaded]</code></td><td>Retries, then "too busy", $0</td></tr>
+<tr><td>Concurrency</td><td>5 × <code>[slow]</code></td><td>2 waiting, then run</td></tr>
+<tr><td>Timeout on create</td><td><code>Http::fake</code></td><td>Exactly one provider generation</td></tr>
+<tr><td>Bad / stale signature</td><td>Tampered body or <code>t</code></td><td>400, nothing stored</td></tr>
+<tr><td>Concurrent success deliveries</td><td>Parallel test</td><td>One charge</td></tr>
+<tr><td>Insufficient balance</td><td>Balance &lt; priceMax</td><td>Blocked, top-up link</td></tr>
+<tr><td>Double-click buy</td><td>Click twice</td><td>One purchase</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="tests">
+<h2>Tests (Pest)</h2>
+<ul class="tight">
+  <li><b>Unit:</b> rate parsing, markup exactness, the docs' examples (169,080,000 and 373,875,000 nano), <code>min ≤ actual ≤ max</code> for every size × quality × refs, signature cases.</li>
+  <li><b>Feature:</b> duplicate and out-of-order events, early webhook, failed → $0, every submit outcome via <code>Http::fake</code>, polling + webhook → one charge, ledger invariant, insufficient funds, report across UTC midnight, image fallback.</li>
+</ul>
+</section>
+
+<section id="deploy">
+<h2>Deployment (Laravel Cloud)</h2>
+<ol>
+  <li>Public GitHub repo → Cloud app (PHP 8.4, <code>npm ci &amp;&amp; npm run build</code>).</li>
+  <li>Attach <b>Postgres</b>, a <b>Redis-compatible key-value store</b> and an <b>object storage bucket</b>.</li>
+  <li>Worker: <code>queue:work redis --queue=webhooks,submissions,default</code>; enable the scheduler.</li>
+  <li>Env: <code>APP_TIMEZONE=UTC</code>, <code>QUEUE_CONNECTION=redis</code>, <code>CACHE_STORE=redis</code>, <code>PIXELFORGE_API_KEY</code>, <code>PIXELFORGE_WEBHOOK_SECRET</code>, <code>MARKUP_BPS=2500</code>, filesystem disk.</li>
+  <li>Deploy command <code>migrate --force</code>; seed the admin once.</li>
+  <li>Production Pixelforge key → webhook <code>https://&lt;app&gt;/webhooks/pixelforge</code> → ping → 200.</li>
+  <li>Smoke test with normal, <code>[fail]</code>, <code>[duplicate]</code>, <code>[slow]</code> and <code>[blocked]</code> prompts; check the report against <code>/v1/usage</code>; leave them on the site.</li>
+</ol>
+<p class="muted">Local: Herd (<code>prompt-edit.test</code>), Redis via Herd services or Homebrew, a separate local key, and <code>herd share</code> / ngrok for webhooks.</p>
+</section>
+
+<section id="timeline">
+<h2>Build order</h2>
+<div class="phase"><div class="t">0 · 20 min</div><div><b>Scaffold</b><ul><li>Vue starter kit, Pest, brick/math, Redis config, git</li></ul><div class="done">Done when: the app boots and tests run.</div></div></div>
+<div class="phase"><div class="t">1 · 40 min</div><div><b>Money &amp; pricing</b><ul><li>Money, PricingCatalog, CostEstimator, CostCalculator</li></ul><div class="done">Done when: the docs' examples are exact in tests.</div></div></div>
+<div class="phase"><div class="t">2 · 30 min</div><div><b>Schema, client, ledger</b><ul><li>Migrations, models, enums, PixelforgeClient + exceptions, Ledger</li></ul><div class="done">Done when: the ledger invariant test passes.</div></div></div>
+<div class="phase"><div class="t">3 · 60 min</div><div><b>Lifecycle</b><ul><li>CreateGeneration, SubmitGeneration, state machine, webhooks, Redis throttle, reconcile</li></ul><div class="done">Done when: the failure matrix is covered by feature tests.</div></div></div>
+<div class="phase"><div class="t">4 · 60 min</div><div><b>UI</b><ul><li>Generate, History, Credits (balances + welcome credit)</li></ul><div class="done">Done when: a <code>[fail]</code> and a normal run look right end to end locally.</div></div></div>
+<div class="phase"><div class="t">5 · 30 min</div><div><b>Deploy</b><ul><li>Laravel Cloud, prod key, webhook, smoke tests</li></ul><div class="done">Done when: the public URL works and its webhooks return 200.</div></div></div>
+<div class="phase"><div class="t">6 · 60 min</div><div><b>Stretch</b><ul><li>Admin report + reconciliation, image storage, README of decisions</li></ul><div class="done">Done when: the report matches <code>/v1/usage</code> to the nano-dollar.</div></div></div>
+</section>
+
+<section id="interview">
+<h2>Interview notes</h2>
+<div class="cards">
+  <div class="card"><h4>Why nano-dollars?</h4><p>Exact to the provider's precision; integer arithmetic; rounding only for display.</p></div>
+  <div class="card"><h4>Why hold the max?</h4><p>It's a promise to the user, and it makes concurrent submits safe against the balance.</p></div>
+  <div class="card"><h4>Why Redis?</h4><p>A shared atomic throttle across workers, queue priorities, and fast locks. The DB queue can't share a rate budget well.</p></div>
+  <div class="card"><h4>Rates change?</h4><p>Actual cost uses the generation's own rates; the markup rounds up to the nano-dollar.</p></div>
+</div>
+</section>
+</main>
+</div>
+<script>
+function toggleTheme(){
+  const r=document.documentElement;
+  const dark = r.dataset.theme ? r.dataset.theme==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  r.dataset.theme = dark ? 'light' : 'dark';
+  try{localStorage.setItem('plan-theme', r.dataset.theme)}catch(e){}
+}
+try{const t=localStorage.getItem('plan-theme'); if(t) document.documentElement.dataset.theme=t;}catch(e){}
+</script>
+</body>
+</html>
