@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -24,6 +26,18 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->configureRateLimiting();
+    }
+
+    /**
+     * One request budget shared by every job that calls Pixelforge. The
+     * account allows 60 per minute across all keys; we stay under it.
+     */
+    protected function configureRateLimiting(): void
+    {
+        RateLimiter::for('pixelforge-api', fn (): Limit => Limit::perMinute(
+            (int) config('pixelforge.requests_per_minute'),
+        ));
     }
 
     /**
