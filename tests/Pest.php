@@ -1,5 +1,6 @@
 <?php
 
+use App\Pricing\PriceList;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -29,10 +30,6 @@ pest()->extend(TestCase::class)
 |
 */
 
-expect()->extend('toBeOne', function () {
-    return $this->toBe(1);
-});
-
 /*
 |--------------------------------------------------------------------------
 | Functions
@@ -44,7 +41,13 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/** Pixelforge's published price list, as returned by GET /v1/pricing. */
+function pixelforgePricingResponse(): array
 {
-    // ..
+    return json_decode(file_get_contents(__DIR__.'/Fixtures/pricing.json'), true, flags: JSON_THROW_ON_ERROR);
+}
+
+function pixelforgePrices(): PriceList
+{
+    return PriceList::fromArray(pixelforgePricingResponse());
 }
