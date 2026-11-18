@@ -51,3 +51,31 @@ function pixelforgePrices(): PriceList
 {
     return PriceList::fromArray(pixelforgePricingResponse());
 }
+
+/**
+ * A Pixelforge generation object as the API and webhooks return it.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function pixelforgeGeneration(array $overrides = []): array
+{
+    return array_replace([
+        'id' => 'gen_01jcz8xk4m2n5p7q9r3s6t8v0w',
+        'object' => 'generation',
+        'status' => 'queued',
+        'prompt' => 'a lighthouse at dusk',
+        'size' => '1024x1024',
+        'quality' => 'medium',
+        'reference_images' => [],
+        'metadata' => [],
+        'image_url' => null,
+        'image_url_expires_at' => null,
+        'usage' => null,
+        'rates' => pixelforgePricingResponse()['rates'],
+        'error' => null,
+        'created_at' => '2026-11-18T14:03:11Z',
+        'started_at' => null,
+        'completed_at' => null,
+    ], $overrides);
+}
