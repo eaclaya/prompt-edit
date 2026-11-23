@@ -5,14 +5,20 @@ namespace App\Support;
 use Brick\Math\BigDecimal;
 use Brick\Math\BigInteger;
 use Brick\Math\RoundingMode;
+use Illuminate\Contracts\Database\Eloquent\Castable;
+use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
+use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use JsonSerializable;
 use Stringable;
 
 /**
  * An exact amount of US dollars, held as integer nanodollars (1 USD = 10^9).
+ *
+ * Also an Eloquent cast: `'charged_nanos' => Money::class` stores a bigint
+ * column of nanodollars and reads it back as Money (null stays null).
  */
-final readonly class Money implements JsonSerializable, Stringable
+final readonly class Money implements Castable, JsonSerializable, Stringable
 {
     public const int NANOS_PER_DOLLAR = 1_000_000_000;
 
@@ -189,6 +195,33 @@ final readonly class Money implements JsonSerializable, Stringable
     public function __toString(): string
     {
         return $this->toDecimal();
+    }
+
+    /**
+     * @param  array<int, string>  $arguments
+     * @return CastsAttributes<Money, Money|int>
+     */
+    public static function castUsing(array $arguments): CastsAttributes
+    {
+        return new class implements CastsAttributes
+        {
+            /** @param  array<string, mixed>  $attributes */
+            public function get(Model $model, string $key, mixed $value, array $attributes): ?Money
+            {
+                return $value === null ? null : Money::ofNanos((int) $value);
+            }
+
+            /** @param  array<string, mixed>  $attributes */
+            public function set(Model $model, string $key, mixed $value, array $attributes): ?int
+            {
+                return match (true) {
+                    $value === null => null,
+                    $value instanceof Money => $value->nanos,
+                    is_int($value) => $value,
+                    default => throw new InvalidArgumentException("[{$key}] must be Money, an int of nanodollars or null."),
+                };
+            }
+        };
     }
 
     private static function checked(int|float $nanos): self

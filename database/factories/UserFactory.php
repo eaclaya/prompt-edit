@@ -47,6 +47,27 @@ class UserFactory extends Factory
     }
 
     /**
+     * An operator who can see the admin report.
+     */
+    public function admin(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_admin' => true,
+        ]);
+    }
+
+    /**
+     * Set the cached balance directly (a decimal USD string). Tests of the
+     * ledger should go through the Ledger instead.
+     */
+    public function withBalance(string $usd): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'balance_nanos' => \App\Support\Money::of($usd),
+        ]);
+    }
+
+    /**
      * Indicate that the model has two-factor authentication configured.
      */
     public function withTwoFactor(): static
