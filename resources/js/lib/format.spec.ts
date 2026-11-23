@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import {
-    formatMoney,
-    formatQuality,
-    formatSize,
-    formatTokens,
-} from './format';
+import { formatMoney, formatQuality, formatSize, formatTokens } from './format';
 
 describe('formatMoney', () => {
     it('shows four decimals, rounding half up', () => {

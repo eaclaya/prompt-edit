@@ -87,9 +87,9 @@ describe('GenerationCard', () => {
         const wrapper = card(summary({ image_url: null, image_expired: true }));
 
         expect(wrapper.find('img').exists()).toBe(false);
-        expect(
-            wrapper.find('[data-test="image-expired"]').text(),
-        ).toContain('expired');
+        expect(wrapper.find('[data-test="image-expired"]').text()).toContain(
+            'expired',
+        );
     });
 
     it('shows the error of a failed generation and its $0 charge', () => {

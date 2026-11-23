@@ -35,9 +35,9 @@ describe('StatusBadge', () => {
 
     it('spins only while the generation is in flight', () => {
         const spinning = (status: GenerationStatus) =>
-            mount(StatusBadge, { props: { status } }).find(
-                '[data-test="status-spinner"]',
-            ).exists();
+            mount(StatusBadge, { props: { status } })
+                .find('[data-test="status-spinner"]')
+                .exists();
 
         expect(spinning('pending')).toBe(true);
         expect(spinning('queued')).toBe(true);

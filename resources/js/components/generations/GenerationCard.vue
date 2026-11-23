@@ -4,11 +4,7 @@ import type { InertiaLinkProps } from '@inertiajs/vue3';
 import ExpiredImage from '@/components/generations/ExpiredImage.vue';
 import StatusBadge from '@/components/generations/StatusBadge.vue';
 import PlaceholderPattern from '@/components/PlaceholderPattern.vue';
-import {
-    formatMoney,
-    formatQuality,
-    formatSize,
-} from '@/lib/format';
+import { formatMoney, formatQuality, formatSize } from '@/lib/format';
 import type { GenerationSummary } from '@/types';
 
 defineProps<{

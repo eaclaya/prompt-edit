@@ -75,9 +75,7 @@ describe('EstimateCard', () => {
             },
         });
 
-        expect(card.find('[data-test="estimate-loading"]').exists()).toBe(
-            true,
-        );
+        expect(card.find('[data-test="estimate-loading"]').exists()).toBe(true);
     });
 
     it('links to buy credits when the max is not affordable', () => {

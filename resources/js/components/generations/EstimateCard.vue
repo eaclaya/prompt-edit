@@ -38,8 +38,8 @@ withDefaults(
                 />
             </CardTitle>
             <CardDescription>
-                Pixelforge bills the actual tokens used; you never pay more
-                than the maximum.
+                Pixelforge bills the actual tokens used; you never pay more than
+                the maximum.
             </CardDescription>
         </CardHeader>
         <CardContent class="space-y-3">
