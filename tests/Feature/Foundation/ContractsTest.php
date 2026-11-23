@@ -4,12 +4,10 @@ use App\Contracts\Data\Estimate;
 use App\Contracts\Data\EstimateInput;
 use App\Contracts\Exceptions\InsufficientCredits;
 use App\Contracts\GenerationSync;
-use App\Contracts\Ledger;
 use App\Contracts\Markup;
 use App\Contracts\NotImplemented\NotImplementedException;
 use App\Enums\Quality;
 use App\Enums\Size;
-use App\Models\User;
 use App\Pixelforge\Data\ProviderGeneration;
 use App\Support\Money;
 use Tests\Fixtures\PixelforgeFixtures;
@@ -20,7 +18,6 @@ it('resolves every contract to a stub that says who implements it', function (st
     expect($implementation)->toBeInstanceOf($contract)
         ->and(fn () => $call($implementation))->toThrow(NotImplementedException::class, "{$contract} is not implemented yet ({$session})");
 })->with([
-    'Ledger' => [Ledger::class, 'S3', fn (Ledger $l) => $l->available(new User)],
     'GenerationSync' => [GenerationSync::class, 'S5', fn (GenerationSync $s) => $s->apply(ProviderGeneration::fromArray(PixelforgeFixtures::load('generation.queued')))],
 ]);
 
