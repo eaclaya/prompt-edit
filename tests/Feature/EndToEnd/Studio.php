@@ -172,8 +172,8 @@ final class Studio
             'metadata' => ['local_id' => $generation->id],
             'created_at' => $now->subSeconds(20)->toIso8601ZuluString(),
             'started_at' => $now->subSeconds(18)->toIso8601ZuluString(),
-            'completed_at' => $now->toIso8601ZuluString(),
-            'image_url_expires_at' => $now->addDay()->toIso8601ZuluString(),
+            'completed_at' => $type === 'generation.processing' ? null : $now->toIso8601ZuluString(),
+            ...($type === 'generation.succeeded' ? ['image_url_expires_at' => $now->addDay()->toIso8601ZuluString()] : []),
             ...$object,
         ]);
     }
