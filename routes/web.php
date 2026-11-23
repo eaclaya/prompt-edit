@@ -10,7 +10,8 @@ use Illuminate\Support\Facades\Route;
 Route::inertia('/', 'Welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'Dashboard')->name('dashboard');
+    // Fortify's home after login and sign-up; History is the studio's landing page.
+    Route::redirect('dashboard', '/generations')->name('dashboard');
 
     // Owner session in brackets; see docs/CONTRACTS.md.
     Route::get('generations', [GenerationController::class, 'index'])->name('generations.index'); // S6

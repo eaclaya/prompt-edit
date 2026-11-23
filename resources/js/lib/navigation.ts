@@ -1,5 +1,4 @@
-import { ChartColumn, Coins, ImagePlus, Images, LayoutGrid } from '@lucide/vue';
-import { dashboard } from '@/routes';
+import { ChartColumn, Coins, ImagePlus, Images } from '@lucide/vue';
 import { report } from '@/routes/admin';
 import { index as credits } from '@/routes/credits';
 import { create, index as history } from '@/routes/generations';
@@ -10,7 +9,6 @@ export function mainNavItems(
     user: { is_admin: boolean } | null | undefined,
 ): NavItem[] {
     const items: NavItem[] = [
-        { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
         { title: 'New image', href: create(), icon: ImagePlus },
         { title: 'History', href: history(), icon: Images },
         { title: 'Credits', href: credits(), icon: Coins },

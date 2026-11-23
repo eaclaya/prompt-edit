@@ -9,7 +9,6 @@ const hrefs = (isAdmin: boolean) =>
 describe('mainNavItems', () => {
     it('links every user to creating, history and credits', () => {
         expect(hrefs(false)).toEqual([
-            '/dashboard',
             '/generations/create',
             '/generations',
             '/credits',

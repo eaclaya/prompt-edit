@@ -15,7 +15,7 @@ it('shares the balance and available credit on every page', function (string $ro
         ->assertInertia(fn (Assert $page) => $page
             ->where('balance.balance', '1.000000000')
             ->where('balance.available', '0.750000000'));
-})->with(['dashboard', 'profile.edit']);
+})->with(['generations.index', 'profile.edit']);
 
 it('shares a null balance with guests', function () {
     $this->get(route('home'))
