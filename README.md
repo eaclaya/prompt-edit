@@ -22,13 +22,13 @@ Laravel 13 · Inertia 3 · Vue 3 (official Vue starter kit with Fortify auth) ·
 | Account | Email | Password | What you can see |
 |---|---|---|---|
 | Regular user | `demo@pixelforge.test` | `pixelforge-demo-2026` | New image, History (already has examples), Credits |
-| Admin | `admin@pixelforge.test` | `pixelforge-admin-2026` | Everything above, plus **Admin report** in the sidebar |
+| Admin | `admin@pixelforge.test` | `pixelforge-admin-2026` | Everything above, plus **Admin report** in the sidebar (log out first: the login form is pre-filled with the regular user) |
 
 You can also **sign up with any email**. There is no email verification, and a new account gets a **$2.00 welcome credit** on the live site. The two accounts above are shared, so other reviewers see the same history and balance.
 
 ### A five-minute tour
 
-1. **Log in as the regular user.** You land on **History**, which already has example generations:
+1. **Log in as the regular user.** Opening the site takes you to the login page with this account **already filled in**: just press *Log in*. You land on **History**, which already has example generations:
    - three successes: a high-quality landscape, a `[slow]` portrait, and a `[duplicate]` whose webhook was delivered twice but charged once
    - a `[fail]` and a `[blocked]` (content-policy refusal), both charged **$0**
    - each card shows the **estimated range** and the **actual charge**
@@ -214,7 +214,7 @@ The app is at `http://localhost:${APP_PORT}` (8000 by default) and Mailpit at `h
 
 ## Tests and the TDD log
 
-**512 Pest tests** (about 5,900 assertions; 9 more are the starter kit's email-verification tests, which skip themselves now that verification is off) and **57 Vitest tests in 7 files**. All run inside Docker against Postgres and Redis, the same engines the public stack uses. `lockForUpdate`, partial unique indexes and `insertOrIgnore` behave differently on SQLite, so we don't use it.
+**519 Pest tests** (about 6,000 assertions; 9 more are the starter kit's email-verification tests, which skip themselves now that verification is off) and **57 Vitest tests in 7 files**. All run inside Docker against Postgres and Redis, the same engines the public stack uses. `lockForUpdate`, partial unique indexes and `insertOrIgnore` behave differently on SQLite, so we don't use it.
 
 | Suite | Covers |
 |---|---|
