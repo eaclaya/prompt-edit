@@ -67,7 +67,7 @@ it('accepts webhooks from Pixelforge without a session, login or CSRF token', fu
         ->and($route->gatherMiddleware())->not->toContain('web')
         ->and($route->gatherMiddleware())->not->toContain('auth');
 
-    postWebhook(PixelforgeFixtures::event('ping'))->assertStatus(501);
+    postWebhook(PixelforgeFixtures::event('ping'))->assertOk();
 });
 
 it('reserves a ShareBalance slot in the web middleware group', function () {
