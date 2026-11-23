@@ -2,6 +2,7 @@
 
 namespace App\Billing;
 
+use App\Contracts\Exceptions\InsufficientCredits;
 use App\Contracts\Ledger;
 use App\Enums\LedgerEntryType;
 use App\Models\CreditTransaction;
@@ -9,6 +10,8 @@ use App\Models\Generation;
 use App\Models\User;
 use App\Support\Money;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
+use LogicException;
 
 /**
  * The append-only ledger in credit_transactions.
@@ -34,12 +37,38 @@ final class DatabaseLedger implements Ledger
 
     public function purchase(User $user, Money $amount, string $token): void
     {
-        throw new \LogicException('Not implemented.');
+        if (! $amount->isPositive()) {
+            throw new InvalidArgumentException("A purchase must be positive, got {$amount->toDecimal()}.");
+        }
+
+        $this->locked($user, function (User $user) use ($amount, $token) {
+            if (CreditTransaction::where('idempotency_key', $token)->exists()) {
+                return;
+            }
+
+            $this->credit($user, LedgerEntryType::Purchase, $amount, key: $token);
+        });
     }
 
     public function hold(Generation $generation, Money $amount): void
     {
-        throw new \LogicException('Not implemented.');
+        if ($amount->isNegative()) {
+            throw new InvalidArgumentException("A hold cannot be negative, got {$amount->toDecimal()}.");
+        }
+
+        $this->locked($this->owner($generation), function (User $user) use ($generation, $amount) {
+            if ($this->entry($generation, LedgerEntryType::Hold)) {
+                return;
+            }
+
+            $available = $this->availableFor($user);
+
+            if ($available->isLessThan($amount)) {
+                throw new InsufficientCredits($amount, $available);
+            }
+
+            $this->reserve($user, $generation, LedgerEntryType::Hold, $amount->negate());
+        });
     }
 
     public function settle(Generation $generation, Money $charge): void
@@ -54,7 +83,39 @@ final class DatabaseLedger implements Ledger
 
     public function available(User $user): Money
     {
-        throw new \LogicException('Not implemented.');
+        return $this->availableFor($user->newQuery()->findOrFail($user->getKey()));
+    }
+
+    /** Cached balance plus the (negative) sum of hold and hold_release rows, i.e. minus open holds. */
+    private function availableFor(User $user): Money
+    {
+        $reserved = (int) CreditTransaction::where('user_id', $user->id)
+            ->whereIn('type', [LedgerEntryType::Hold, LedgerEntryType::HoldRelease])
+            ->sum('amount_nanos');
+
+        return $user->balance_nanos->add(Money::ofNanos($reserved));
+    }
+
+    private function owner(Generation $generation): User
+    {
+        return $generation->user ?? throw new LogicException("Generation [{$generation->id}] has no user.");
+    }
+
+    private function entry(Generation $generation, LedgerEntryType $type): ?CreditTransaction
+    {
+        return CreditTransaction::where('generation_id', $generation->id)->where('type', $type)->first();
+    }
+
+    /** Append a hold or hold_release row: it moves "available", not the balance. Caller holds the lock. */
+    private function reserve(User $user, Generation $generation, LedgerEntryType $type, Money $amount): void
+    {
+        CreditTransaction::create([
+            'user_id' => $user->id,
+            'generation_id' => $generation->id,
+            'type' => $type,
+            'amount_nanos' => $amount,
+            'balance_after_nanos' => $user->balance_nanos,
+        ]);
     }
 
     /**
