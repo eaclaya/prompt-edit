@@ -23,9 +23,10 @@ install: ## Install PHP and Node dependencies inside the container
 	$(RUN) composer install --no-interaction --prefer-dist
 	$(RUN) npm ci
 
-test: ## Pest, against Postgres (testing DB) and Redis
+test: ## Pest, against Postgres (testing DB) and Redis, then Vitest (component and composable tests)
 	$(RUN) php artisan config:clear --ansi
 	$(RUN) php artisan test $(ARGS)
+	$(RUN) npm run test:js
 
 lint: ## Pint (check), Larastan, frontend lint and type-check
 	$(RUN) vendor/bin/pint --test
