@@ -4,6 +4,7 @@ A small web app on top of the Pixelforge image-generation API. A user writes a p
 
 Laravel 13 · Inertia 3 · Vue 3 (official Vue starter kit with Fortify auth) · Pest 4 · Postgres 17 · Redis · Docker.
 
+- [For reviewers](#for-reviewers)
 - [Key decisions](#key-decisions)
 - [How a generation flows](#how-a-generation-flows)
 - [Running it (Docker + make)](#running-it)
@@ -11,6 +12,53 @@ Laravel 13 · Inertia 3 · Vue 3 (official Vue starter kit with Fortify auth) ·
 - [Live smoke test](#live-smoke-test)
 - [Hosting (Cloudflare tunnel)](#hosting-cloudflare-tunnel)
 - [Known limits](#known-limits)
+
+---
+
+## For reviewers
+
+**Live app: <https://prompt-edit.hondukash.dev>**
+
+| Account | Email | Password | What you can see |
+|---|---|---|---|
+| Regular user | `demo@pixelforge.test` | `pixelforge-demo-2026` | New image, History (already has examples), Credits |
+| Admin | `admin@pixelforge.test` | `pixelforge-admin-2026` | Everything above, plus **Admin report** in the sidebar |
+
+You can also **sign up with any email**. There is no email verification, and a new account gets a **$2.00 welcome credit** on the live site. The two accounts above are shared, so other reviewers see the same history and balance.
+
+### A five-minute tour
+
+1. **Log in as the regular user.** You land on **History**, which already has example generations:
+   - three successes: a high-quality landscape, a `[slow]` portrait, and a `[duplicate]` whose webhook was delivered twice but charged once
+   - a `[fail]` and a `[blocked]` (content-policy refusal), both charged **$0**
+   - each card shows the **estimated range** and the **actual charge**
+2. **Open a generation.** The detail page shows the image, the estimate you saw upfront, and the cost breakdown: Pixelforge's token usage × its rates, the provider cost, then **+25%**, rounded up.
+3. **Make one.** Go to **New image** and type a prompt. The estimate (min – expected – max) updates as you type and as you change size, quality or reference images. Click **Generate**: the **maximum** is held from the balance, and History updates live through *Queued → Processing → Succeeded/Failed*. That takes about 10–90 s.
+4. **Credits.** The balance and every ledger row: the hold at submit, then the charge for the actual cost plus the hold's release (a failure only releases). **Buy credits** is a fake checkout that adds credit instantly.
+5. **Log out and log in as the admin.** **Admin report** shows, per UTC day, Pixelforge's cost, what users were charged, and the profit, next to Pixelforge's own `GET /v1/usage`. It also has per-user totals for the date range.
+
+### Test keywords
+
+Put one in the prompt to steer Pixelforge's test behaviour:
+
+| Keyword | What happens |
+|---|---|
+| `[succeed]` | succeeds quickly; charged the actual cost |
+| `[slow]` | stays *Processing* for about a minute, so you can watch History update live |
+| `[fail]` | fails after processing; **$0**, hold released |
+| `[blocked]` | refused by the content policy; **$0** |
+| `[duplicate]` | Pixelforge delivers the webhook twice; it is stored and charged once |
+| `[overloaded]` | Pixelforge answers 503 at first; the job waits for `Retry-After` and retries |
+
+### Good to know
+
+- **Real money, small amounts.** Each generation is billed to our Pixelforge key: about $0.01 for a low-quality square up to about $0.45 for a high-quality landscape. Pixelforge allows 500 generations a day across all users.
+- **Amounts** are shown to 4 decimals, but stored and charged to the nanodollar (1e-9 USD).
+- **The admin report flags 2026-11-23.** Before launch, three live smoke-test generations ($0.1852375) were recorded in a separate development database that used the same Pixelforge key. Pixelforge billed them, but this database doesn't have them, so the report flags that day. That is the reconciliation working.
+- **Hosting.** The site runs on a developer machine behind a Cloudflare tunnel (see [Hosting](#hosting-cloudflare-tunnel)). If it doesn't load, that machine is probably asleep; let us know.
+- **No outgoing email.** Password-reset emails don't leave the server, so please use the accounts above (or sign up again).
+- **Images** are copied to our own storage when a generation succeeds, so they keep showing after Pixelforge's 24-hour link expires.
+- **Reading the code:** start with [Key decisions](#key-decisions) and [How a generation flows](#how-a-generation-flows). The commit history reads as the test-driven spec ([Tests and the TDD log](#tests-and-the-tdd-log)). To run it yourself, see [Running it](#running-it).
 
 ---
 
@@ -93,6 +141,7 @@ Create page ──POST /estimate (debounced)──▶ min / expected / max, can_
                                                                                           ▼
                                        GenerationSync::apply  (lock row, forward-only)
                                        succeeded → cost × 1.25 → Ledger::settle(charge)
+                                                   → queue: StoreGenerationImage (our copy of the image)
                                        failed    → Ledger::release
 History polls every 3 s (Inertia partial reload) until every generation is final.
 ```
@@ -106,6 +155,7 @@ History polls every 3 s (Inertia partial reload) until every generation is final
 | Submission | `app/Http/Controllers/StoreGenerationController.php`, `app/Jobs/SubmitGeneration.php` |
 | Webhooks and sync | `app/Http/Controllers/PixelforgeWebhookController.php`, `app/Http/Middleware/VerifyPixelforgeSignature.php`, `app/Jobs/ProcessWebhookEvent.php`, `app/Generations/` |
 | Poller | `app/Console/Commands/ReconcileGenerations.php`, `routes/console.php` |
+| Image copies | `app/Jobs/StoreGenerationImage.php` (public disk, `storage/app/public/generations`) |
 | Admin report | `app/Reports/`, `app/Http/Controllers/AdminReportController.php` |
 | Pages | `resources/js/pages/{generations,credits,admin}/` |
 | Contracts between modules | `app/Contracts/`, documented in `docs/CONTRACTS.md` |
@@ -156,7 +206,7 @@ The app is at `http://localhost:${APP_PORT}` (8000 by default) and Mailpit at `h
 | `make shell` | bash in `app` |
 | `make ci` | what GitHub Actions runs |
 
-**Seeded accounts.** `make fresh` creates a verified demo user and an admin (`is_admin`), each with the $1.00 welcome credit. Their emails and passwords come from the `SEED_*` variables. `.env.example` holds generated development-only values. The seeder refuses to run without a password, so set your own anywhere public.
+**Seeded accounts.** `make fresh` (or `php artisan db:seed`) creates the demo user and the admin (`is_admin`) from the `SEED_*` variables, each with the welcome credit. `.env.example` has the same reviewer credentials published [above](#for-reviewers). Re-running the seeder updates their names and passwords, never their credit. It refuses to run without a password.
 
 **Parallel worktrees.** Set `COMPOSE_PROJECT_NAME=prompt-edit-s<N>` and the port offsets listed in `.env.example`, so stacks never collide.
 
@@ -164,7 +214,7 @@ The app is at `http://localhost:${APP_PORT}` (8000 by default) and Mailpit at `h
 
 ## Tests and the TDD log
 
-**522 Pest tests** (about 5,900 assertions) and **57 Vitest tests in 7 files**. All run inside Docker against Postgres and Redis, the same engines the public stack uses. `lockForUpdate`, partial unique indexes and `insertOrIgnore` behave differently on SQLite, so we don't use it.
+**512 Pest tests** (about 5,900 assertions; 9 more are the starter kit's email-verification tests, which skip themselves now that verification is off) and **57 Vitest tests in 7 files**. All run inside Docker against Postgres and Redis, the same engines the public stack uses. `lockForUpdate`, partial unique indexes and `insertOrIgnore` behave differently on SQLite, so we don't use it.
 
 | Suite | Covers |
 |---|---|
@@ -270,6 +320,10 @@ rm -f public/hot && docker compose exec -u sail app npm run build
 docker compose exec -u sail app php artisan migrate --seed --force
 ```
 
+```bash
+docker compose exec -u sail app php artisan storage:link
+```
+
 **Checking it**
 
 - `https://prompt-edit.hondukash.dev/login` loads with `/build/assets/…` scripts.
@@ -282,7 +336,8 @@ docker compose exec -u sail app php artisan migrate --seed --force
 
 ## Known limits
 
-- **Images are not copied.** `image_url` expires 24 h after completion. After that, History and the detail page show a placeholder. Copying to object storage is a small follow-up.
+- **Image copies live on this machine's disk** (`storage/app/public`). A copy is made when a generation succeeds; if the download fails three times, the page keeps Pixelforge's link, which expires after 24 h. Object storage (S3/R2) would be the next step for a real host.
+- **No email is sent.** Verification is off (there is no mail service behind the site), and password-reset emails stay in the local Mailpit.
 - **The daily limit (500/day) is account-wide** and shared by every user. When it is hit, users see Pixelforge's message and are not charged.
 - **The funnel caps POSTs in flight, not generations in progress.** Pixelforge's "3 concurrent" may count running generations. Its `concurrency_limit_exceeded` 429 is still retried with backoff.
 - **A submission that keeps getting throttled** waits about 20 minutes, over 10 attempts with exponential backoff, before failing as `submission_throttled` (no charge).
