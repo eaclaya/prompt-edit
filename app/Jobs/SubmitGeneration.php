@@ -8,8 +8,13 @@ use App\Enums\GenerationStatus;
 use App\Models\Generation;
 use App\Pixelforge\Exceptions\PixelforgeException;
 use App\Pixelforge\PixelforgeClient;
+use Closure;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Contracts\Redis\LimiterTimeoutException;
+use Illuminate\Redis\Limiters\ConcurrencyLimiter;
+use Illuminate\Redis\Limiters\DurationLimiter;
+use Illuminate\Support\Facades\Redis;
 use Throwable;
 
 /**
@@ -33,6 +38,14 @@ class SubmitGeneration implements ShouldQueue
 
     public const int MAX_BACKOFF = 300;
 
+    /** Redis keys of the account-wide submission funnel (concurrency slots are KEY1…KEYn). */
+    public const string CONCURRENCY_KEY = 'pixelforge:submissions:concurrency:';
+
+    public const string RATE_KEY = 'pixelforge:submissions:per-minute';
+
+    /** A concurrency slot expires on its own if a worker dies mid-request (longer than the HTTP timeouts). */
+    private const int FUNNEL_SLOT_TTL = 60;
+
     /** Pixelforge accepts only these fields; anything else is a 422. */
     private const array ALLOWED_FIELDS = ['prompt', 'size', 'quality', 'reference_images', 'metadata'];
 
@@ -41,6 +54,37 @@ class SubmitGeneration implements ShouldQueue
     public bool $deleteWhenMissingModels = true;
 
     public function __construct(public Generation $generation) {}
+
+    /** @return list<Closure(self, Closure): mixed> */
+    public function middleware(): array
+    {
+        return [fn (self $job, Closure $next) => $job->throughFunnel($next)];
+    }
+
+    /**
+     * Account-wide gate in Redis: at most `limits.max_concurrent` POSTs in flight and
+     * `limits.requests_per_minute` per minute. A per-minute slot is spent only once a
+     * concurrency slot is held. When either is full the job is released with backoff.
+     */
+    public function throughFunnel(Closure $next): mixed
+    {
+        $redis = Redis::connection();
+        $concurrency = new ConcurrencyLimiter($redis, self::CONCURRENCY_KEY, (int) config('pixelforge.limits.max_concurrent'), self::FUNNEL_SLOT_TTL);
+
+        try {
+            return $concurrency->block(0, function () use ($redis, $next) {
+                $rate = new DurationLimiter($redis, self::RATE_KEY, (int) config('pixelforge.limits.requests_per_minute'), 60);
+
+                if (! $rate->acquire()) {
+                    return $this->holdBack(min(60, max(1, (int) $rate->decaysAt - time())));
+                }
+
+                return $next($this);
+            });
+        } catch (LimiterTimeoutException) {
+            return $this->holdBack();
+        }
+    }
 
     public function handle(PixelforgeClient $client, GenerationSync $sync, Ledger $ledger): void
     {
@@ -68,6 +112,24 @@ class SubmitGeneration implements ShouldQueue
         Generation::whereKey($generation->id)->whereNull('submitted_at')->update(['submitted_at' => now()]);
 
         $sync->apply($accepted);
+    }
+
+    /** The funnel is full: try again later, or give up cleanly on the last attempt. */
+    private function holdBack(int $atLeast = 0): null
+    {
+        if ($this->attempts() >= self::MAX_ATTEMPTS) {
+            $generation = $this->generation->fresh();
+
+            if ($generation !== null) {
+                $this->failGeneration($generation, 'submission_throttled', 'Too many generations are being submitted right now. Please try again. You were not charged.', app(Ledger::class));
+            }
+
+            return null;
+        }
+
+        $this->release($this->backoff($atLeast));
+
+        return null;
     }
 
     /** Seconds to wait before the next attempt: never sooner than Retry-After. */
