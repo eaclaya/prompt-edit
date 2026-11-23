@@ -218,7 +218,20 @@ The QA script for the real API goes through the tunnel. Pixelforge rejects `loca
    - also `[blocked]` (content policy, $0) and `[overloaded]` (retried)
 4. Check that the Pixelforge delivery log shows 2xx, and that `/admin/report` for today shows no mismatch against `/v1/usage`.
 
-**Status:** verified locally in the browser (Docker stack, signed webhooks sent to localhost, a webhook processed before the POST answered, live polling, detail breakdown, credits, admin report). **Not yet run against the real Pixelforge API.** The development API key in use was rejected (`401 invalid_api_key`), and no webhook secret or tunnel token was available.
+**Status: run against the real Pixelforge API on 2026-11-23.** Webhooks were delivered through the tunnel to the local Docker stack. Four medium 1024×1024 prompts were submitted (hold of about $0.0863 each):
+
+| Prompt | Final | Pixelforge cost | Charged (+25%, ceil) | Events stored |
+|---|---|---|---|---|
+| `[succeed]` | succeeded | $0.049630000 | $0.062037500 | processing, succeeded |
+| `[slow]` | succeeded after about 80 s, with History polling the whole time | $0.067935000 | $0.084918750 | processing, succeeded |
+| `[fail]` | failed (`generation_failed`), Pixelforge's message shown | $0 | $0 | processing, failed |
+| `[duplicate]` | succeeded | $0.067672500 | $0.084590625 | processing, succeeded (the redelivery 3 s later was deduplicated) |
+
+- **Ledger:** 4 holds, 4 hold releases, 3 charges. The balance is $1.00 − $0.231546875 = $0.768453125, nothing is left held, and no webhook event is left unprocessed.
+- **Webhooks:** 13 signed deliveries arrived during the run and 8 events were stored. The extra deliveries were deduplicated on `evt_…`, and none led to a second charge.
+- **Retries:** with four submitted at once, two POSTs were released and retried by the job (Pixelforge's concurrency limit), then accepted.
+- **Reconciliation:** `/v1/usage` for the day reports 3 generations and $0.185237500, which equals our provider cost for those three to the nanodollar. The admin report on that dev database also flags +$0.059070. That is a synthetic generation from the earlier local QA, completed with hand-signed webhooks, which Pixelforge never billed. The report is right to flag it.
+- **Not checked:** Pixelforge's own delivery log; we saw only our side of the deliveries.
 
 ---
 
