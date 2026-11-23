@@ -10,6 +10,7 @@ use App\Enums\GenerationStatus;
 use App\Models\Generation;
 use App\Pixelforge\Data\ProviderGeneration;
 use App\Support\Money;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use UnexpectedValueException;
@@ -81,10 +82,10 @@ final class SyncGeneration implements GenerationSync
     private function advance(Generation $generation, ProviderGeneration $remote): void
     {
         $generation->status = $remote->status;
-        $generation->submitted_at ??= $remote->createdAt;
+        $generation->submitted_at ??= Carbon::instance($remote->createdAt);
 
         if ($remote->status !== GenerationStatus::Queued) {
-            $generation->started_at ??= $remote->startedAt ?? $remote->completedAt ?? now();
+            $generation->started_at ??= Carbon::instance($remote->startedAt ?? $remote->completedAt ?? now());
         }
 
         match ($remote->status) {

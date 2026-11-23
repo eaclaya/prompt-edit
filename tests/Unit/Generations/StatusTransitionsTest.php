@@ -23,4 +23,3 @@ dataset('transitions', function () {
 it('allows only forward moves out of a non-final status', function (S $from, S $to, bool $allowed) {
     expect(StatusTransitions::allows($from, $to))->toBe($allowed);
 })->with('transitions');
-

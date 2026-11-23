@@ -3,6 +3,7 @@
 use App\Jobs\ProcessWebhookEvent;
 use App\Models\WebhookEvent;
 use Illuminate\Support\Facades\Queue;
+use Tests\Fakes\SignedWebhook;
 use Tests\Fixtures\PixelforgeFixtures;
 
 beforeEach(fn () => Queue::fake());
@@ -31,7 +32,7 @@ it('rejects a delivery signed with another secret', function () {
 
 it('rejects a body that was changed after signing', function () {
     $webhook = signedWebhook(PixelforgeFixtures::event('generation.processing'));
-    $tampered = new Tests\Fakes\SignedWebhook(str_replace('processing', 'succeeded', $webhook->body), $webhook->headers, $webhook->timestamp);
+    $tampered = new SignedWebhook(str_replace('processing', 'succeeded', $webhook->body), $webhook->headers, $webhook->timestamp);
 
     postWebhook($tampered)->assertStatus(400);
 });
