@@ -2,6 +2,7 @@
 
 use App\Support\Money;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Tests\Fakes\SignedWebhook;
 use Tests\TestCase;
 
@@ -65,4 +66,16 @@ expect()->extend('toEqualMoney', function (Money|int|string $expected) {
 function signedWebhook(array $payload, ?int $timestamp = null, ?string $secret = null, int $attempt = 1): SignedWebhook
 {
     return SignedWebhook::make($payload, $timestamp, $secret, $attempt);
+}
+
+/**
+ * POST a signed delivery to /webhooks/pixelforge with the raw body, as Pixelforge would.
+ *
+ * @param  array<string, mixed>|SignedWebhook  $payload
+ */
+function postWebhook(array|SignedWebhook $payload, ?int $timestamp = null, ?string $secret = null): TestResponse
+{
+    $webhook = $payload instanceof SignedWebhook ? $payload : signedWebhook($payload, $timestamp, $secret);
+
+    return test()->call('POST', '/webhooks/pixelforge', server: $webhook->server(), content: $webhook->body);
 }
