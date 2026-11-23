@@ -15,6 +15,11 @@ fi
 
 chmod -R ugo+rw /.composer
 
+# node_modules is a named volume (Linux-native packages); Docker creates it as root.
+if [ -d /var/www/html/node_modules ]; then
+    chown sail /var/www/html/node_modules
+fi
+
 if [ $# -gt 0 ]; then
     if [ "$SUPERVISOR_PHP_USER" = "root" ]; then
         exec "$@"

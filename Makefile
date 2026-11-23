@@ -5,7 +5,7 @@
 ifdef LARAVEL_SAIL
 RUN :=
 else
-RUN := docker compose exec app
+RUN := docker compose exec -u sail app
 endif
 
 .PHONY: up down build test lint fix shell tunnel fresh install ci
@@ -38,7 +38,7 @@ fix: ## Apply Pint and frontend formatting fixes
 	$(RUN) npx vp check --fix resources compose.yaml
 
 shell: ## A shell in the app container
-	docker compose exec app bash
+	docker compose exec -u sail app bash
 
 tunnel: ## Start the Cloudflare tunnel (https://prompt-edit.hondukash.dev → app:80)
 	docker compose --profile tunnel up -d tunnel
@@ -48,8 +48,8 @@ fresh: ## Rebuild the dev database with seed data
 
 ci: ## Everything CI runs; meant to be run inside the app container
 	[ -f .env ] || cp .env.example .env
-	grep -q '^APP_KEY=base64' .env || php artisan key:generate --ansi
 	composer install --no-interaction --prefer-dist --no-progress
+	grep -q '^APP_KEY=base64' .env || php artisan key:generate --ansi
 	npm ci --no-audit --no-fund
 	npm run build
 	$(MAKE) lint
