@@ -18,13 +18,11 @@ dataset('app routes', [
     'admin.report' => ['GET', fn () => route('admin.report')],
 ]);
 
-// Routes still served by a stub. Landed routes (S3: credits.*) are covered by their owner's tests.
+// Routes still served by a stub. Landed routes are covered by their owner's tests; S8 removes this test.
 dataset('stub routes', [
     'generations.index' => ['GET', fn () => route('generations.index')],
     'generations.create' => ['GET', fn () => route('generations.create')],
     'generations.show' => ['GET', fn () => route('generations.show', Generation::factory()->create())],
-    'generations.store' => ['POST', fn () => route('generations.store')],
-    'estimate' => ['POST', fn () => route('estimate')],
     'admin.report' => ['GET', fn () => route('admin.report')],
 ]);
 
