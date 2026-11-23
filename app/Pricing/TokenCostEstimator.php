@@ -18,6 +18,8 @@ use App\Support\Money;
  */
 final readonly class TokenCostEstimator implements CostEstimator
 {
+    private const int BASIS_POINTS = 10_000;
+
     public function __construct(
         private PricingCatalog $catalog,
         private CostCalculator $calculator,
@@ -52,11 +54,25 @@ final readonly class TokenCostEstimator implements CostEstimator
         $output = $model->outputTokens($input->quality, $input->size);
         $images = $input->referenceImageCount * $model->perReferenceImage;
         $text = self::ceilDiv($input->promptCharacters(), $model->charactersPerTextToken);
+        $variance = $model->textTokenVarianceBps;
+        $minReasoning = $model->minReasoningTokens($input->quality);
+        $maxReasoning = $model->maxReasoningTokens($input->quality);
 
         return [
-            'min' => new Usage($text, $images, $output, 0),
-            'expected' => new Usage($text, $images, $output, 0),
-            'max' => new Usage($text, $images, $output, 0),
+            // Bounds round outwards, so the real count is always inside them.
+            'min' => new Usage(
+                intdiv($text * (self::BASIS_POINTS - $variance), self::BASIS_POINTS),
+                $images,
+                $output,
+                $minReasoning,
+            ),
+            'expected' => new Usage($text, $images, $output, intdiv($minReasoning + $maxReasoning, 2)),
+            'max' => new Usage(
+                self::ceilDiv($text * (self::BASIS_POINTS + $variance), self::BASIS_POINTS),
+                $images,
+                $output,
+                $maxReasoning,
+            ),
         ];
     }
 

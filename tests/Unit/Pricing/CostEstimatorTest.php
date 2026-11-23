@@ -50,3 +50,52 @@ it('counts Unicode characters, not bytes', function () {
         ->and(estimator()->usageBounds(new EstimateInput($prompt, Size::Square, Quality::Low))['expected']->inputTextTokens)
         ->toBe(2);
 });
+
+it('gives the docs worked example a max of exactly $0.373875', function () {
+    // high, 1536x1024, 400 characters, 2 reference images:
+    // 115 text (ceil(100 × 1.15)) + 1530 image + 6450 output + 8000 reasoning (max for high)
+    $input = new EstimateInput(str_repeat('a', 400), Size::Landscape, Quality::High, 2);
+
+    $max = estimator()->usageBounds($input)['max'];
+    $estimate = estimator()->estimate($input);
+
+    expect($max->toArray())->toBe([
+        'input_text_tokens' => 115,
+        'input_image_tokens' => 1530,
+        'output_tokens' => 6450,
+        'reasoning_tokens' => 8000,
+        'total_tokens' => 16095,
+    ])
+        ->and($estimate->providerMax)->toEqualMoney('0.373875')
+        ->and($estimate->userMax)->toEqualMoney('0.46734375');
+});
+
+it('uses ×0.85 text tokens and the minimum reasoning tokens for the min', function () {
+    $input = new EstimateInput(str_repeat('a', 400), Size::Landscape, Quality::High, 2);
+
+    $min = estimator()->usageBounds($input)['min'];
+    $estimate = estimator()->estimate($input);
+
+    expect($min->inputTextTokens)->toBe(85)
+        ->and($min->reasoningTokens)->toBe(1000)
+        ->and($estimate->providerMin)->toEqualMoney('0.286225')
+        ->and($estimate->userMin)->toEqualMoney('0.35778125');
+});
+
+it('expects the midpoint of the reasoning range', function () {
+    $input = new EstimateInput(str_repeat('a', 400), Size::Landscape, Quality::High, 2);
+
+    $estimate = estimator()->estimate($input);
+
+    expect(estimator()->usageBounds($input)['expected']->reasoningTokens)->toBe(4500)
+        ->and($estimate->providerExpected)->toEqualMoney('0.33005')
+        ->and($estimate->userExpected)->toEqualMoney('0.4125625');
+});
+
+it('rounds the text bounds outwards so they always contain the real count', function () {
+    // 5 characters → 2 tokens; 2 × 1.15 = 2.3 → 3 at most, 2 × 0.85 = 1.7 → 1 at least.
+    $bounds = estimator()->usageBounds(new EstimateInput('abcde', Size::Square, Quality::Low));
+
+    expect($bounds['min']->inputTextTokens)->toBe(1)
+        ->and($bounds['max']->inputTextTokens)->toBe(3);
+});
