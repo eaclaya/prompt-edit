@@ -4,6 +4,7 @@ use App\Http\Middleware\ShareBalance;
 use App\Models\Generation;
 use App\Models\User;
 use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Route;
 use Tests\Fixtures\PixelforgeFixtures;
 
@@ -22,11 +23,26 @@ it('sends guests to the login page', function (string $method, string $url) {
     $this->call($method, $url)->assertRedirect(route('login'));
 })->with('app routes');
 
-it('requires a verified email', function (string $method, string $url) {
-    $this->actingAs(User::factory()->unverified()->create())
-        ->call($method, $url)
-        ->assertRedirect(route('verification.notice'));
-})->with('app routes');
+it('lets an account in without verifying its email (there is no mail service behind the site)', function () {
+    $this->withoutVite()->actingAs(User::factory()->unverified()->create())
+        ->get(route('generations.create'))
+        ->assertOk();
+});
+
+it('lets someone sign up and start generating straight away, without a verification email', function () {
+    Notification::fake();
+
+    $this->withoutVite()->post(route('register.store'), [
+        'name' => 'Reviewer',
+        'email' => 'reviewer@example.test',
+        'password' => 'a-long-password-1',
+        'password_confirmation' => 'a-long-password-1',
+    ]);
+
+    $this->assertAuthenticated();
+    $this->get(route('generations.create'))->assertOk();
+    Notification::assertNothingSent();
+});
 
 it('has the documented paths', function () {
     expect(route('generations.index', absolute: false))->toBe('/generations')

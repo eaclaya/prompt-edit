@@ -163,7 +163,7 @@ return [
     'features' => [
         Features::registration(),
         Features::resetPasswords(),
-        Features::emailVerification(),
+        // Email verification is off: the public site has no mail service, so a link could never arrive.
         Features::twoFactorAuthentication([
             'confirm' => true,
             'confirmPassword' => true,
