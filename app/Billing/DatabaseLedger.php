@@ -9,7 +9,9 @@ use App\Models\CreditTransaction;
 use App\Models\Generation;
 use App\Models\User;
 use App\Support\Money;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use LogicException;
 
@@ -73,12 +75,26 @@ final class DatabaseLedger implements Ledger
 
     public function settle(Generation $generation, Money $charge): void
     {
-        throw new \LogicException('Not implemented.');
+        if ($charge->isNegative()) {
+            throw new InvalidArgumentException("A charge cannot be negative, got {$charge->toDecimal()}.");
+        }
+
+        $this->closeHold($generation, 'settle', function (User $user, ?CreditTransaction $hold) use ($generation, $charge) {
+            if ($hold && $charge->isGreaterThan($hold->amount_nanos->negate())) {
+                Log::warning('Generation charged more than its hold (rates changed after the estimate).', [
+                    'generation_id' => $generation->id,
+                    'hold' => $hold->amount_nanos->negate()->toDecimal(),
+                    'charge' => $charge->toDecimal(),
+                ]);
+            }
+
+            $this->credit($user, LedgerEntryType::Charge, $charge->negate(), generation: $generation);
+        });
     }
 
     public function release(Generation $generation): void
     {
-        throw new \LogicException('Not implemented.');
+        $this->closeHold($generation, 'release', function () {});
     }
 
     public function available(User $user): Money
@@ -94,6 +110,45 @@ final class DatabaseLedger implements Ledger
             ->sum('amount_nanos');
 
         return $user->balance_nanos->add(Money::ofNanos($reserved));
+    }
+
+    /**
+     * Release the generation's hold (if any) and run $then, all under the owner's lock.
+     * A no-op when the generation was already settled or released, so a second call,
+     * or a concurrent one, writes nothing. The partial unique index on
+     * (generation_id, type) backs this up at the database level.
+     *
+     * @param  callable(User, ?CreditTransaction): void  $then
+     */
+    private function closeHold(Generation $generation, string $operation, callable $then): void
+    {
+        $owner = $generation->user;
+
+        if (! $owner) {
+            Log::warning("Ledger {$operation} skipped: the generation has no owner.", ['generation_id' => $generation->id]);
+
+            return;
+        }
+
+        try {
+            $this->locked($owner, function (User $user) use ($generation, $operation, $then) {
+                if ($this->entry($generation, LedgerEntryType::Charge) || $this->entry($generation, LedgerEntryType::HoldRelease)) {
+                    return;
+                }
+
+                $hold = $this->entry($generation, LedgerEntryType::Hold);
+
+                if ($hold) {
+                    $this->reserve($user, $generation, LedgerEntryType::HoldRelease, $hold->amount_nanos->negate());
+                } elseif ($operation === 'release') {
+                    return;
+                }
+
+                $then($user, $hold);
+            });
+        } catch (UniqueConstraintViolationException) {
+            // Another writer closed this hold first; the transaction rolled back whole.
+        }
     }
 
     private function owner(Generation $generation): User
@@ -135,12 +190,13 @@ final class DatabaseLedger implements Ledger
     }
 
     /** Append a row that moves the balance, and update the cached balance. Caller holds the lock. */
-    private function credit(User $user, LedgerEntryType $type, Money $amount, ?string $key = null): void
+    private function credit(User $user, LedgerEntryType $type, Money $amount, ?string $key = null, ?Generation $generation = null): void
     {
         $balance = $user->balance_nanos->add($amount);
 
         CreditTransaction::create([
             'user_id' => $user->id,
+            'generation_id' => $generation?->id,
             'type' => $type,
             'amount_nanos' => $amount,
             'balance_after_nanos' => $balance,
