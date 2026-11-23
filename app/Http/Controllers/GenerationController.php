@@ -57,9 +57,13 @@ class GenerationController extends Controller
         ]);
     }
 
-    public function show(Generation $generation): Response
+    public function show(Request $request, Generation $generation): Response
     {
-        abort(501, 'Not implemented yet (S6).');
+        abort_unless($generation->user_id === $this->user($request)->id, 404);
+
+        return Inertia::render('generations/Show', [
+            'generation' => GenerationResource::make($generation)->detailed()->resolve($request),
+        ]);
     }
 
     private static function sizeLabel(Size $size): string
