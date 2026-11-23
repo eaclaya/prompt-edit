@@ -6,6 +6,7 @@ use App\Enums\LedgerEntryType;
 use App\Jobs\SubmitGeneration;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\Feature\EndToEnd\Studio;
+use Tests\Fixtures\PixelforgeFixtures;
 
 beforeEach(fn () => Studio::boot());
 afterEach(fn () => Studio::shutdown());
@@ -74,3 +75,40 @@ it('retries an overloaded Pixelforge and charges once it succeeds', function () 
         ->and($user)->toHaveBalance('0.6181125');
     Studio::assertBooksBalance($user);
 });
+
+it('does not show the user Pixelforge errors that are the operator\'s to fix', function (string $code) {
+    $user = Studio::register();
+    $generation = Studio::submit();
+
+    Studio::$pixelforge->failsWith($code);
+    Studio::submitJobs();
+
+    $fresh = $generation->fresh();
+    expect($fresh->status)->toBe(GenerationStatus::Failed)
+        ->and($fresh->error_code)->toBe($code)
+        ->and($fresh->error_message)->toBe('Image generation is unavailable right now. You were not charged; please try again later.')
+        ->and($user)->toHaveBalance('1.00');
+})->with(['invalid_api_key', 'idempotency_key_reused', 'not_found']);
+
+it('does not show the user connection errors once retries run out', function () {
+    Studio::register();
+    $generation = Studio::submit();
+
+    Studio::$pixelforge->failsToConnect();
+    $job = (new SubmitGeneration($generation))->withFakeQueueInteractions();
+    $job->job->attempts = SubmitGeneration::MAX_ATTEMPTS; // the last attempt
+    app()->call([$job, 'handle']);
+
+    expect($generation->fresh()->error_message)->toBe(SubmitGeneration::UNAVAILABLE_MESSAGE);
+});
+
+it('keeps Pixelforge\'s message when it is about the user\'s request', function (string $code) {
+    Studio::register();
+    $generation = Studio::submit();
+
+    Studio::$pixelforge->failsWith($code);
+    Studio::submitJobs();
+
+    $fixture = PixelforgeFixtures::load("errors/{$code}");
+    expect($generation->fresh()->error_message)->toBe($fixture['error']['message']);
+})->with(['content_policy_violation', 'daily_limit_exceeded', 'validation_failed']);
