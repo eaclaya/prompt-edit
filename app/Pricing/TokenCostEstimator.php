@@ -50,11 +50,18 @@ final readonly class TokenCostEstimator implements CostEstimator
     {
         $model = $this->catalog->tokenModel();
         $output = $model->outputTokens($input->quality, $input->size);
+        $images = $input->referenceImageCount * $model->perReferenceImage;
+        $text = self::ceilDiv($input->promptCharacters(), $model->charactersPerTextToken);
 
         return [
-            'min' => new Usage(0, 0, $output, 0),
-            'expected' => new Usage(0, 0, $output, 0),
-            'max' => new Usage(0, 0, $output, 0),
+            'min' => new Usage($text, $images, $output, 0),
+            'expected' => new Usage($text, $images, $output, 0),
+            'max' => new Usage($text, $images, $output, 0),
         ];
+    }
+
+    private static function ceilDiv(int $dividend, int $divisor): int
+    {
+        return intdiv($dividend + $divisor - 1, $divisor);
     }
 }
