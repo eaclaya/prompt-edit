@@ -2,12 +2,17 @@
 
 namespace App\Support;
 
+use Brick\Math\BigDecimal;
+use Brick\Math\BigInteger;
+use Brick\Math\RoundingMode;
 use InvalidArgumentException;
+use JsonSerializable;
+use Stringable;
 
 /**
  * An exact amount of US dollars, held as integer nanodollars (1 USD = 10^9).
  */
-final readonly class Money
+final readonly class Money implements JsonSerializable, Stringable
 {
     public const int NANOS_PER_DOLLAR = 1_000_000_000;
 
@@ -90,6 +95,24 @@ final readonly class Money
         return new self(-$this->nanos);
     }
 
+    /**
+     * Multiply by numerator/denominator, rounding up (towards positive infinity)
+     * to a whole nanodollar. Used for the markup (125/100) and token rates (n/1M).
+     */
+    public function multiplyRatio(int $numerator, int $denominator): self
+    {
+        if ($denominator <= 0) {
+            throw new InvalidArgumentException('The denominator must be positive.');
+        }
+
+        return new self(
+            BigInteger::of($this->nanos)
+                ->multipliedBy($numerator)
+                ->dividedBy($denominator, RoundingMode::Ceiling)
+                ->toInt(),
+        );
+    }
+
     /** -1, 0 or 1. */
     public function compareTo(self $other): int
     {
@@ -144,6 +167,28 @@ final readonly class Money
         $fraction = $absolute % self::NANOS_PER_DOLLAR;
 
         return ($this->nanos < 0 ? '-' : '').$whole.'.'.str_pad((string) $fraction, 9, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Display form for the UI edge only: "$0.0461", or six decimals below one
+     * cent ("$0.000575"). Rounds half up; the stored value is never changed.
+     */
+    public function format(): string
+    {
+        $decimals = $this->nanos !== 0 && abs($this->nanos) < 10_000_000 ? 6 : 4;
+        $absolute = BigDecimal::ofUnscaledValue(abs($this->nanos), 9)->toScale($decimals, RoundingMode::HalfUp);
+
+        return ($this->nanos < 0 ? '-' : '').'$'.$absolute->toString();
+    }
+
+    public function jsonSerialize(): string
+    {
+        return $this->toDecimal();
+    }
+
+    public function __toString(): string
+    {
+        return $this->toDecimal();
     }
 
     private static function checked(int|float $nanos): self

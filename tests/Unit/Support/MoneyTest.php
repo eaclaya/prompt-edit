@@ -65,3 +65,45 @@ it('sums a list of amounts', function () {
     expect(Money::sum([Money::of('0.1'), Money::of('0.2'), Money::of('0.3')])->toDecimal())->toBe('0.600000000')
         ->and(Money::sum([])->isZero())->toBeTrue();
 });
+
+it('multiplies by a ratio, rounding up to the next nanodollar', function () {
+    expect(Money::ofNanos(100)->multiplyRatio(125, 100)->nanos)->toBe(125)
+        ->and(Money::ofNanos(1)->multiplyRatio(125, 100)->nanos)->toBe(2)
+        ->and(Money::ofNanos(3)->multiplyRatio(1, 3)->nanos)->toBe(1)
+        ->and(Money::ofNanos(4)->multiplyRatio(1, 3)->nanos)->toBe(2)
+        ->and(Money::zero()->multiplyRatio(125, 100)->nanos)->toBe(0)
+        ->and(Money::of('0.373875')->multiplyRatio(125, 100)->toDecimal())->toBe('0.467343750');
+});
+
+it('rounds a negative ratio towards positive infinity', function () {
+    expect(Money::ofNanos(-1)->multiplyRatio(125, 100)->nanos)->toBe(-1);
+});
+
+it('multiplies large amounts without overflowing the intermediate product', function () {
+    // $5 per 1M tokens × 8,000,000 tokens / 1M = $40
+    expect(Money::of('5.00')->multiplyRatio(8_000_000, 1_000_000)->toDecimal())->toBe('40.000000000')
+        ->and(Money::of('9000000.00')->multiplyRatio(1_000_000_000, 1_000_000_000)->toDecimal())->toBe('9000000.000000000');
+});
+
+it('rejects a zero or negative denominator', function () {
+    Money::of('1')->multiplyRatio(1, 0);
+})->throws(InvalidArgumentException::class);
+
+it('formats for display with four decimals, or six below one cent, without changing the stored value', function () {
+    $amount = Money::of('0.046125000');
+
+    expect($amount->format())->toBe('$0.0461')
+        ->and(Money::of('0.000575')->format())->toBe('$0.000575')
+        ->and(Money::of('0.00000049')->format())->toBe('$0.000000')
+        ->and(Money::of('0.00999995')->format())->toBe('$0.010000')
+        ->and(Money::of('12.34565')->format())->toBe('$12.3457')
+        ->and(Money::of('1.00')->format())->toBe('$1.0000')
+        ->and(Money::of('-0.25')->format())->toBe('-$0.2500')
+        ->and(Money::zero()->format())->toBe('$0.0000')
+        ->and($amount->toDecimal())->toBe('0.046125000');
+});
+
+it('serialises to its exact decimal string', function () {
+    expect(json_encode(['price' => Money::of('0.046125')]))->toBe('{"price":"0.046125000"}')
+        ->and((string) Money::of('1.5'))->toBe('1.500000000');
+});
