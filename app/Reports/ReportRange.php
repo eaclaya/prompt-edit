@@ -52,6 +52,18 @@ final readonly class ReportRange
         return $dates;
     }
 
+    /** @return list<self> consecutive ranges of at most $days days covering this one */
+    public function chunks(int $days): array
+    {
+        $chunks = [];
+        for ($from = $this->start; $from->lte($this->end); $from = $from->addDays($days)) {
+            $to = $from->addDays($days - 1);
+            $chunks[] = new self($from->toDateString(), ($to->lt($this->end) ? $to : $this->end)->toDateString());
+        }
+
+        return $chunks;
+    }
+
     /** @return array{start: string, end: string} */
     public function toArray(): array
     {

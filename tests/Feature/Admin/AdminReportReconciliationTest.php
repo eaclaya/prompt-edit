@@ -4,6 +4,7 @@ use App\Models\Generation;
 use App\Models\User;
 use App\Support\Money;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\Fakes\PixelforgeFake;
 use Tests\Fixtures\PixelforgeFixtures;
@@ -88,4 +89,45 @@ it('still shows our own numbers when /v1/usage fails', function () {
             ->where('totals.pixelforge_cost', null)
             ->where('totals.difference', null)
         );
+});
+
+it('splits ranges over 92 days into several usage calls', function () {
+    // 200 days: 92 + 92 + 16.
+    $pixelforge = PixelforgeFake::fake()->returnsUsage([
+        '2026-01-01' => ['generations' => 1, 'cost_usd' => '0.000000001'],
+        '2026-04-02' => ['generations' => 1, 'cost_usd' => '0.000000010'], // last day of the first call
+        '2026-04-03' => ['generations' => 1, 'cost_usd' => '0.000000100'], // first day of the second call
+        '2026-07-19' => ['generations' => 1, 'cost_usd' => '0.000001000'],
+    ]);
+
+    $this->actingAs($this->admin)
+        ->get(route('admin.report', ['start' => '2026-01-01', 'end' => '2026-07-19']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('usage_error', null)
+            ->has('days', 200)
+            ->where('days.0.pixelforge_cost', '0.000000001')
+            ->where('days.91.date', '2026-04-02')
+            ->where('days.91.pixelforge_cost', '0.000000010')
+            ->where('days.92.pixelforge_cost', '0.000000100')
+            ->where('days.199.date', '2026-07-19')
+            ->where('days.199.pixelforge_cost', '0.000001000')
+            ->where('totals.pixelforge_cost', '0.000001111')
+        );
+
+    $pixelforge->assertUsageRequested('2026-01-01', '2026-04-02');
+    $pixelforge->assertUsageRequested('2026-04-03', '2026-07-03');
+    $pixelforge->assertUsageRequested('2026-07-04', '2026-07-19');
+    Http::assertSentCount(3);
+});
+
+it('asks for a range of exactly 92 days in one call', function () {
+    $pixelforge = PixelforgeFake::fake()->returnsUsage();
+
+    $this->actingAs($this->admin)
+        ->get(route('admin.report', ['start' => '2026-01-01', 'end' => '2026-04-02']))
+        ->assertOk();
+
+    $pixelforge->assertUsageRequested('2026-01-01', '2026-04-02');
+    Http::assertSentCount(1);
 });

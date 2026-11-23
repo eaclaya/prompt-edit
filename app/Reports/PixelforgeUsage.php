@@ -8,6 +8,9 @@ use App\Support\Money;
 /** What Pixelforge says it billed us, per UTC day of completion (GET /v1/usage). */
 final readonly class PixelforgeUsage
 {
+    /** GET /v1/usage covers at most this many days per call (inclusive). */
+    public const int MAX_DAYS_PER_CALL = 92;
+
     public function __construct(private PixelforgeClient $client) {}
 
     /**
@@ -18,10 +21,12 @@ final readonly class PixelforgeUsage
     public function costByDay(ReportRange $range): array
     {
         $costs = [];
-        $usage = $this->client->getUsage($range->start->toDateString(), $range->end->toDateString());
-        foreach ($usage->days as $day) {
-            if ($day->date !== null) {
-                $costs[$day->date] = $day->cost;
+        foreach ($range->chunks(self::MAX_DAYS_PER_CALL) as $chunk) {
+            $usage = $this->client->getUsage($chunk->start->toDateString(), $chunk->end->toDateString());
+            foreach ($usage->days as $day) {
+                if ($day->date !== null) {
+                    $costs[$day->date] = $day->cost;
+                }
             }
         }
 
