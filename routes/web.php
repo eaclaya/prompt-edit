@@ -7,7 +7,8 @@ use App\Http\Controllers\GenerationController;
 use App\Http\Controllers\StoreGenerationController;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'Welcome')->name('home');
+// The studio is the site: the root opens History, which sends guests to the login page.
+Route::redirect('/', '/generations')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // Fortify's home after login and sign-up; History is the studio's landing page.

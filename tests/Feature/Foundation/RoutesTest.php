@@ -75,5 +75,5 @@ it('accepts webhooks from Pixelforge without a session, login or CSRF token', fu
 it('reserves a ShareBalance slot in the web middleware group', function () {
     expect(app(Kernel::class)->getMiddlewareGroups()['web'])->toContain(ShareBalance::class);
 
-    $this->get('/')->assertOk();
+    $this->withoutVite()->get(route('login'))->assertOk();
 });

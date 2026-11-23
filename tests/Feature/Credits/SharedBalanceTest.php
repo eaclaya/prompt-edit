@@ -18,6 +18,6 @@ it('shares the balance and available credit on every page', function (string $ro
 })->with(['generations.index', 'profile.edit']);
 
 it('shares a null balance with guests', function () {
-    $this->get(route('home'))
+    $this->get(route('login'))
         ->assertInertia(fn (Assert $page) => $page->where('balance', null));
 });
