@@ -30,3 +30,38 @@ it('rejects more than nine decimal places', function () {
 it('rejects strings that are not decimal amounts', function (string $amount) {
     Money::of($amount);
 })->throws(InvalidArgumentException::class)->with(['', 'abc', '1.2.3', '1e3', ' 1.00', '$1.00', '.5', '1.']);
+
+it('adds and subtracts without changing the original', function () {
+    $a = Money::of('0.500000000');
+    $b = Money::of('0.123456789');
+
+    expect($a->add($b)->toDecimal())->toBe('0.623456789')
+        ->and($a->subtract($b)->toDecimal())->toBe('0.376543211')
+        ->and($b->subtract($a)->toDecimal())->toBe('-0.376543211')
+        ->and($a->toDecimal())->toBe('0.500000000')
+        ->and($a->negate()->toDecimal())->toBe('-0.500000000');
+});
+
+it('compares amounts', function () {
+    $small = Money::of('0.01');
+    $large = Money::of('0.02');
+
+    expect($small->compareTo($large))->toBe(-1)
+        ->and($large->compareTo($small))->toBe(1)
+        ->and($small->compareTo(Money::ofNanos(10_000_000)))->toBe(0)
+        ->and($small->equals(Money::of('0.010')))->toBeTrue()
+        ->and($small->isLessThan($large))->toBeTrue()
+        ->and($large->isGreaterThan($small))->toBeTrue()
+        ->and($small->isGreaterThanOrEqualTo($small))->toBeTrue()
+        ->and($small->isLessThanOrEqualTo($small))->toBeTrue()
+        ->and(Money::zero()->isZero())->toBeTrue()
+        ->and(Money::of('-0.01')->isNegative())->toBeTrue()
+        ->and($small->isPositive())->toBeTrue()
+        ->and(Money::max($small, $large))->toEqual($large)
+        ->and(Money::min($small, $large))->toEqual($small);
+});
+
+it('sums a list of amounts', function () {
+    expect(Money::sum([Money::of('0.1'), Money::of('0.2'), Money::of('0.3')])->toDecimal())->toBe('0.600000000')
+        ->and(Money::sum([])->isZero())->toBeTrue();
+});
