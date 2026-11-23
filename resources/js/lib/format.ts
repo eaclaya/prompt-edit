@@ -1,4 +1,4 @@
-import type { Money } from '@/types';
+import type { Money, Quality, Size } from '@/types';
 
 const SCALE = 9;
 const DECIMAL = /^(-)?(\d+)(?:\.(\d{1,9}))?$/;
@@ -43,4 +43,14 @@ export function formatMoney(amount: Money): string {
 /** Token counts with thousands separators: 10411 → "10,411". */
 export function formatTokens(tokens: number): string {
     return new Intl.NumberFormat('en-US').format(tokens);
+}
+
+/** "1536x1024" → "1536 × 1024". */
+export function formatSize(size: Size): string {
+    return size.replace('x', ' × ');
+}
+
+/** "high" → "High". */
+export function formatQuality(quality: Quality): string {
+    return quality.charAt(0).toUpperCase() + quality.slice(1);
 }

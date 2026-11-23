@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { formatMoney, formatTokens } from './format';
+import {
+    formatMoney,
+    formatQuality,
+    formatSize,
+    formatTokens,
+} from './format';
 
 describe('formatMoney', () => {
     it('shows four decimals, rounding half up', () => {
@@ -48,5 +53,15 @@ describe('formatTokens', () => {
     it('groups thousands', () => {
         expect(formatTokens(10411)).toBe('10,411');
         expect(formatTokens(12)).toBe('12');
+    });
+});
+
+describe('formatSize and formatQuality', () => {
+    it('shows dimensions with a multiplication sign', () => {
+        expect(formatSize('1536x1024')).toBe('1536 × 1024');
+    });
+
+    it('capitalises the quality', () => {
+        expect(formatQuality('high')).toBe('High');
     });
 });
