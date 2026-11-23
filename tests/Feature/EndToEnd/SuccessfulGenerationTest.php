@@ -62,4 +62,3 @@ it('charges the actual cost once a submitted generation succeeds, and settles th
         ->where('balance', '0.618112500')
         ->where('available', '0.618112500'));
 });
-

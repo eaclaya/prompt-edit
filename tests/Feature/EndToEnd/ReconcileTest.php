@@ -2,6 +2,7 @@
 
 use App\Enums\GenerationStatus;
 use App\Enums\LedgerEntryType;
+use App\Models\Generation;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -17,7 +18,7 @@ function polls(): int
 }
 
 /** @return array<string, mixed> overrides for a generation fixture about $generation, finished now */
-function finishedNow(App\Models\Generation $generation): array
+function finishedNow(Generation $generation): array
 {
     $now = CarbonImmutable::now('UTC');
 
