@@ -7,7 +7,6 @@ use App\Contracts\Data\EstimateInput;
 use App\Contracts\Data\Rates;
 use App\Contracts\Data\Usage;
 use App\Contracts\Exceptions\InsufficientCredits;
-use App\Contracts\GenerationSync;
 use App\Contracts\Ledger;
 use App\Contracts\Markup;
 use App\Contracts\NotImplemented\NotImplementedException;
@@ -15,9 +14,7 @@ use App\Contracts\PricingCatalog;
 use App\Enums\Quality;
 use App\Enums\Size;
 use App\Models\User;
-use App\Pixelforge\Data\ProviderGeneration;
 use App\Support\Money;
-use Tests\Fixtures\PixelforgeFixtures;
 
 it('resolves every contract to a stub that says who implements it', function (string $contract, string $session, Closure $call) {
     $implementation = app($contract);
@@ -30,7 +27,6 @@ it('resolves every contract to a stub that says who implements it', function (st
     'CostEstimator' => [CostEstimator::class, 'S2', fn (CostEstimator $e) => $e->estimate(new EstimateInput('A cat', Size::Square, Quality::Low, 0))],
     'PricingCatalog' => [PricingCatalog::class, 'S2', fn (PricingCatalog $p) => $p->current()],
     'Ledger' => [Ledger::class, 'S3', fn (Ledger $l) => $l->available(new User)],
-    'GenerationSync' => [GenerationSync::class, 'S5', fn (GenerationSync $s) => $s->apply(ProviderGeneration::fromArray(PixelforgeFixtures::load('generation.queued')))],
 ]);
 
 it('lets a later binding replace the stub', function () {
