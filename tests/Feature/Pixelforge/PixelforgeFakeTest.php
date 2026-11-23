@@ -2,6 +2,7 @@
 
 use App\Enums\GenerationStatus;
 use App\Pixelforge\Exceptions\ConnectionFailed;
+use App\Pixelforge\Exceptions\DateRangeTooLong;
 use App\Pixelforge\Exceptions\Overloaded;
 use App\Pixelforge\Exceptions\RateLimited;
 use App\Pixelforge\PixelforgeClient;
@@ -114,7 +115,7 @@ it('fails any endpoint with a documented error', function () {
     $this->pixelforge->failsWith('date_range_too_long', endpoint: 'usage');
 
     $this->client->getUsage('2026-01-01', '2026-12-31');
-})->throws(App\Pixelforge\Exceptions\DateRangeTooLong::class);
+})->throws(DateRangeTooLong::class);
 
 it('can fail to connect', function () {
     $this->pixelforge->failsToConnect('retrieve');

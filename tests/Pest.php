@@ -1,9 +1,7 @@
 <?php
 
-use App\Models\User;
 use App\Support\Money;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Testing\TestResponse;
 use Tests\Fakes\SignedWebhook;
 use Tests\TestCase;
 

@@ -1,6 +1,7 @@
 <?php
 
 use App\Support\Money;
+use PHPUnit\Framework\ExpectationFailedException;
 
 it('compares Money, nanodollar ints and decimal strings with toEqualMoney', function () {
     expect(Money::of('0.373875'))->toEqualMoney('0.373875')
@@ -12,4 +13,4 @@ it('compares Money, nanodollar ints and decimal strings with toEqualMoney', func
 
 it('explains a toEqualMoney mismatch in dollars', function () {
     expect(Money::of('0.1'))->toEqualMoney('0.2');
-})->throws(PHPUnit\Framework\ExpectationFailedException::class, 'Expected 0.100000000 to equal 0.200000000');
+})->throws(ExpectationFailedException::class, 'Expected 0.100000000 to equal 0.200000000');
