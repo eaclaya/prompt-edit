@@ -18,11 +18,22 @@ dataset('app routes', [
     'admin.report' => ['GET', fn () => route('admin.report')],
 ]);
 
+// Routes whose owner has landed are dropped here (docs/contract-requests/s7.md).
+dataset('stub routes', [
+    'generations.index' => ['GET', fn () => route('generations.index')],
+    'generations.create' => ['GET', fn () => route('generations.create')],
+    'generations.show' => ['GET', fn () => route('generations.show', Generation::factory()->create())],
+    'generations.store' => ['POST', fn () => route('generations.store')],
+    'estimate' => ['POST', fn () => route('estimate')],
+    'credits.index' => ['GET', fn () => route('credits.index')],
+    'credits.purchase' => ['POST', fn () => route('credits.purchase')],
+]);
+
 it('answers 501 until the owning session implements the route', function (string $method, string $url) {
     $this->actingAs(User::factory()->create())
         ->call($method, $url)
         ->assertStatus(501);
-})->with('app routes');
+})->with('stub routes');
 
 it('sends guests to the login page', function (string $method, string $url) {
     $this->call($method, $url)->assertRedirect(route('login'));
