@@ -2,6 +2,7 @@
 
 use App\Models\Generation;
 use App\Models\User;
+use App\Support\Money;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -17,8 +18,8 @@ function succeededAt(string $completedAt, string $providerCost, string $charged)
 {
     return Generation::factory()->succeeded()->create([
         'completed_at' => Carbon::parse($completedAt),
-        'provider_cost_nanos' => App\Support\Money::of($providerCost),
-        'charged_nanos' => App\Support\Money::of($charged),
+        'provider_cost_nanos' => Money::of($providerCost),
+        'charged_nanos' => Money::of($charged),
     ]);
 }
 

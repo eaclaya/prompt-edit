@@ -15,6 +15,7 @@ final class SpendReport
 {
     private const string INSTANT = 'Y-m-d H:i:sP';
 
+    /** @var literal-string */
     private const string UTC_DAY = "(generations.completed_at AT TIME ZONE 'UTC')::date";
 
     /** @return array<string, ReportTotals> keyed by every date in the range, oldest first */
@@ -40,7 +41,7 @@ final class SpendReport
     /** @return list<UserTotals> users with billed generations in the range, biggest spender first */
     public function byUser(ReportRange $range): array
     {
-        return $this->billed($range)
+        return array_values($this->billed($range)
             ->leftJoin('users', 'users.id', '=', 'generations.user_id')
             ->select('generations.user_id', 'users.name', 'users.email')
             ->selectRaw(self::aggregates())
@@ -58,8 +59,7 @@ final class SpendReport
                     self::totals($row),
                 );
             })
-            ->values()
-            ->all();
+            ->all());
     }
 
     /** @return Builder<Generation> */
@@ -72,6 +72,7 @@ final class SpendReport
             ->where('generations.completed_at', '<', $range->endExclusive()->format(self::INSTANT));
     }
 
+    /** @return literal-string */
     private static function aggregates(): string
     {
         return 'count(*) as generations, '

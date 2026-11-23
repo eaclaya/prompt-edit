@@ -2,6 +2,7 @@
 
 namespace App\Reports;
 
+use App\Pixelforge\Exceptions\PixelforgeException;
 use App\Pixelforge\PixelforgeClient;
 use App\Support\Money;
 
@@ -16,7 +17,7 @@ final readonly class PixelforgeUsage
     /**
      * @return array<string, Money> cost_usd keyed by date
      *
-     * @throws \App\Pixelforge\Exceptions\PixelforgeException
+     * @throws PixelforgeException
      */
     public function costByDay(ReportRange $range): array
     {
