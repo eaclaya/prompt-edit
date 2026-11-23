@@ -95,3 +95,15 @@ it('enforces a unique provider id but allows many unsubmitted generations', func
     Generation::factory()->create(['provider_id' => 'gen_same']);
     Generation::factory()->create(['provider_id' => 'gen_same']);
 })->throws(UniqueConstraintViolationException::class);
+
+it('serialises money columns as exact decimal strings', function () {
+    $user = User::factory()->withBalance('1.25')->create();
+    $generation = Generation::factory()->succeeded()->create();
+
+    expect(json_decode(json_encode($user), true))->toMatchArray(['balance_nanos' => '1.250000000', 'is_admin' => false])
+        ->and(json_decode(json_encode($generation), true))->toMatchArray([
+            'charged_nanos' => '0.381887500',
+            'provider_cost_nanos' => '0.305510000',
+            'status' => 'succeeded',
+        ]);
+});

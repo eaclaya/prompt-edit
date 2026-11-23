@@ -1,3 +1,5 @@
+import type { Money } from './money';
+
 export type User = {
     id: number;
     name: string;
@@ -5,6 +7,9 @@ export type User = {
     avatar?: string;
     email_verified_at: string | null;
     two_factor_enabled?: boolean;
+    is_admin: boolean;
+    /** Cached ledger balance (decimal string); prefer the shared `balance` prop. */
+    balance_nanos: Money;
     created_at: string;
     updated_at: string;
     [key: string]: unknown;
