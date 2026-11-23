@@ -193,11 +193,9 @@ getUsage(string $start, string $end): ProviderUsage                           //
 
 ## 6. Contracts — `app/Contracts`
 
-Until a session binds one, each resolves to `App\Contracts\NotImplemented\NotImplemented*`, which
-throws `NotImplementedException` ("… is not implemented yet (S<N>)"). Stubs are bound with
-`bindIf()` in `App\Providers\ContractsServiceProvider`, so **your provider's plain `bind()` /
-`singleton()` wins** regardless of order. Register yours by appending one line to
-`bootstrap/providers.php`.
+Each contract is bound by its owner's provider (`PricingServiceProvider`, `BillingServiceProvider`,
+`GenerationsServiceProvider`). S1's `NotImplemented` stubs were removed in S8;
+`tests/Feature/EndToEnd/ContainerTest.php` checks that every interface here resolves to its real class.
 
 | Interface | Methods | Owner |
 | --- | --- | --- |
