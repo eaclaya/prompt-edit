@@ -1,7 +1,8 @@
 <?php
 
-use App\Jobs\ReconcileGenerations;
-use Illuminate\Support\Facades\Schedule;
+use Illuminate\Foundation\Inspiring;
+use Illuminate\Support\Facades\Artisan;
 
-// Polls stale generations and retries stuck submissions and webhook events.
-Schedule::job(new ReconcileGenerations)->everyMinute()->withoutOverlapping()->onOneServer();
+Artisan::command('inspire', function () {
+    $this->comment(Inspiring::quote());
+})->purpose('Display an inspiring quote');
