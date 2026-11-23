@@ -1,0 +1,7 @@
+{
+    "error": {
+        "type": "api_error",
+        "code": "overloaded",
+        "message": "Pixelforge is temporarily overloaded. Nothing was created; please retry."
+    }
+}
