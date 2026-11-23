@@ -6,6 +6,7 @@ use App\Providers\AdminServiceProvider;
 use App\Reports\ReportRange;
 use App\Reports\ReportTotals;
 use App\Reports\SpendReport;
+use App\Reports\UserTotals;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -35,6 +36,7 @@ class AdminReportController extends Controller
                 array_keys($days),
                 $days,
             ),
+            'users' => array_map(fn (UserTotals $user) => $user->toArray(), $spend->byUser($range)),
             'totals' => $totals->toArray(),
         ]);
     }

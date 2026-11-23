@@ -15,7 +15,7 @@ final class SpendReport
 {
     private const string INSTANT = 'Y-m-d H:i:sP';
 
-    private const string UTC_DAY = "(completed_at AT TIME ZONE 'UTC')::date";
+    private const string UTC_DAY = "(generations.completed_at AT TIME ZONE 'UTC')::date";
 
     /** @return array<string, ReportTotals> keyed by every date in the range, oldest first */
     public function byDay(ReportRange $range): array
@@ -37,21 +37,46 @@ final class SpendReport
         return $days;
     }
 
+    /** @return list<UserTotals> users with billed generations in the range, biggest spender first */
+    public function byUser(ReportRange $range): array
+    {
+        return $this->billed($range)
+            ->leftJoin('users', 'users.id', '=', 'generations.user_id')
+            ->select('generations.user_id', 'users.name', 'users.email')
+            ->selectRaw(self::aggregates())
+            ->groupBy('generations.user_id', 'users.name', 'users.email')
+            ->orderByDesc('charged_nanos')
+            ->orderBy('generations.user_id')
+            ->toBase()
+            ->get()
+            ->map(function (object $row) {
+                /** @var object{user_id: int|null, name: string|null, email: string|null} $row */
+                return new UserTotals(
+                    $row->user_id,
+                    $row->name ?? 'Deleted user',
+                    $row->email ?? '',
+                    self::totals($row),
+                );
+            })
+            ->values()
+            ->all();
+    }
+
     /** @return Builder<Generation> */
     private function billed(ReportRange $range): Builder
     {
         return Generation::query()
-            ->where('status', GenerationStatus::Succeeded)
+            ->where('generations.status', GenerationStatus::Succeeded)
             // With an explicit offset, so the session's time zone can't shift the bounds.
-            ->where('completed_at', '>=', $range->start->format(self::INSTANT))
-            ->where('completed_at', '<', $range->endExclusive()->format(self::INSTANT));
+            ->where('generations.completed_at', '>=', $range->start->format(self::INSTANT))
+            ->where('generations.completed_at', '<', $range->endExclusive()->format(self::INSTANT));
     }
 
     private static function aggregates(): string
     {
         return 'count(*) as generations, '
-            .'coalesce(sum(provider_cost_nanos), 0) as provider_cost_nanos, '
-            .'coalesce(sum(charged_nanos), 0) as charged_nanos';
+            .'coalesce(sum(generations.provider_cost_nanos), 0) as provider_cost_nanos, '
+            .'coalesce(sum(generations.charged_nanos), 0) as charged_nanos';
     }
 
     private static function totals(object $row): ReportTotals
