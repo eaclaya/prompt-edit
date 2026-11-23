@@ -3,10 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Providers\AdminServiceProvider;
+use App\Reports\AdminReport;
 use App\Reports\ReportRange;
-use App\Reports\ReportTotals;
-use App\Reports\SpendReport;
-use App\Reports\UserTotals;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -21,24 +19,11 @@ class AdminReportController extends Controller
 
     public const int MAX_DAYS = 366;
 
-    public function __invoke(Request $request, SpendReport $spend): Response
+    public function __invoke(Request $request, AdminReport $report): Response
     {
         Gate::authorize(AdminServiceProvider::VIEW_REPORT);
 
-        $range = $this->range($request);
-        $days = $spend->byDay($range);
-        $totals = array_reduce($days, fn (ReportTotals $sum, ReportTotals $day) => $sum->add($day), ReportTotals::zero());
-
-        return Inertia::render('admin/Report', [
-            'filters' => $range->toArray(),
-            'days' => array_map(
-                fn (string $date, ReportTotals $day) => ['date' => $date, ...$day->toArray()],
-                array_keys($days),
-                $days,
-            ),
-            'users' => array_map(fn (UserTotals $user) => $user->toArray(), $spend->byUser($range)),
-            'totals' => $totals->toArray(),
-        ]);
+        return Inertia::render('admin/Report', $report->build($this->range($request)));
     }
 
     private function range(Request $request): ReportRange
