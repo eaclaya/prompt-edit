@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\User;
+use App\Support\Money;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -63,7 +64,7 @@ class UserFactory extends Factory
     public function withBalance(string $usd): static
     {
         return $this->state(fn (array $attributes) => [
-            'balance_nanos' => \App\Support\Money::of($usd),
+            'balance_nanos' => Money::of($usd),
         ]);
     }
 
