@@ -18,11 +18,20 @@ dataset('app routes', [
     'admin.report' => ['GET', fn () => route('admin.report')],
 ]);
 
+// Routes still served by a stub. A session removes its own rows once it implements them (S8 deletes this test).
+dataset('stub routes', [
+    'generations.store' => ['POST', fn () => route('generations.store')],
+    'estimate' => ['POST', fn () => route('estimate')],
+    'credits.index' => ['GET', fn () => route('credits.index')],
+    'credits.purchase' => ['POST', fn () => route('credits.purchase')],
+    'admin.report' => ['GET', fn () => route('admin.report')],
+]);
+
 it('answers 501 until the owning session implements the route', function (string $method, string $url) {
     $this->actingAs(User::factory()->create())
         ->call($method, $url)
         ->assertStatus(501);
-})->with('app routes');
+})->with('stub routes');
 
 it('sends guests to the login page', function (string $method, string $url) {
     $this->call($method, $url)->assertRedirect(route('login'));
