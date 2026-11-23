@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\User;
 use App\Support\Money;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
@@ -48,6 +49,19 @@ expect()->extend('toEqualMoney', function (Money|int|string $expected) {
         $expected->nanos,
         "Expected {$actual->toDecimal()} to equal {$expected->toDecimal()}.",
     );
+
+    return $this;
+});
+
+// expect($user)->toHaveBalance('1.00'): reads users.balance_nanos fresh from the database.
+expect()->extend('toHaveBalance', function (Money|int|string $expected) {
+    if (! $this->value instanceof User) {
+        throw new InvalidArgumentException('toHaveBalance expects a User.');
+    }
+
+    $actual = $this->value->fresh()?->balance_nanos ?? Money::zero();
+
+    expect($actual)->toEqualMoney($expected);
 
     return $this;
 });
