@@ -1,17 +1,12 @@
 <?php
 
-use App\Contracts\CostCalculator;
-use App\Contracts\CostEstimator;
 use App\Contracts\Data\Estimate;
 use App\Contracts\Data\EstimateInput;
-use App\Contracts\Data\Rates;
-use App\Contracts\Data\Usage;
 use App\Contracts\Exceptions\InsufficientCredits;
 use App\Contracts\GenerationSync;
 use App\Contracts\Ledger;
 use App\Contracts\Markup;
 use App\Contracts\NotImplemented\NotImplementedException;
-use App\Contracts\PricingCatalog;
 use App\Enums\Quality;
 use App\Enums\Size;
 use App\Models\User;
@@ -25,10 +20,6 @@ it('resolves every contract to a stub that says who implements it', function (st
     expect($implementation)->toBeInstanceOf($contract)
         ->and(fn () => $call($implementation))->toThrow(NotImplementedException::class, "{$contract} is not implemented yet ({$session})");
 })->with([
-    'CostCalculator' => [CostCalculator::class, 'S2', fn (CostCalculator $c) => $c->providerCost(new Usage(1, 0, 0, 0), Rates::fromArray(config('pixelforge.pricing.rates')))],
-    'Markup' => [Markup::class, 'S2', fn (Markup $m) => $m->apply(Money::of('1'))],
-    'CostEstimator' => [CostEstimator::class, 'S2', fn (CostEstimator $e) => $e->estimate(new EstimateInput('A cat', Size::Square, Quality::Low, 0))],
-    'PricingCatalog' => [PricingCatalog::class, 'S2', fn (PricingCatalog $p) => $p->current()],
     'Ledger' => [Ledger::class, 'S3', fn (Ledger $l) => $l->available(new User)],
     'GenerationSync' => [GenerationSync::class, 'S5', fn (GenerationSync $s) => $s->apply(ProviderGeneration::fromArray(PixelforgeFixtures::load('generation.queued')))],
 ]);
