@@ -14,6 +14,7 @@ use Illuminate\Contracts\Redis\LimiterTimeoutException;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Redis\Limiters\ConcurrencyLimiter;
 use Illuminate\Redis\Limiters\DurationLimiter;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
 use Throwable;
 
@@ -45,6 +46,15 @@ class SubmitGeneration implements ShouldQueue
 
     /** A concurrency slot expires on its own if a worker dies mid-request (longer than the HTTP timeouts). */
     private const int FUNNEL_SLOT_TTL = 60;
+
+    /** Pixelforge errors about the user's request or its capacity: its own message is shown to them. */
+    private const array USER_FACING_ERRORS = [
+        'content_policy_violation', 'daily_limit_exceeded', 'validation_failed',
+        'overloaded', 'rate_limit_exceeded', 'concurrency_limit_exceeded',
+    ];
+
+    /** Shown instead of Pixelforge's message for errors only the operator can fix (bad key, …). */
+    public const string UNAVAILABLE_MESSAGE = 'Image generation is unavailable right now. You were not charged; please try again later.';
 
     /** Pixelforge accepts only these fields; anything else is a 422. */
     private const array ALLOWED_FIELDS = ['prompt', 'size', 'quality', 'reference_images', 'metadata'];
@@ -99,7 +109,7 @@ class SubmitGeneration implements ShouldQueue
         } catch (PixelforgeException $e) {
             $e->isRetryable() && $this->attempts() < self::MAX_ATTEMPTS
                 ? $this->release($this->backoff($e->retryAfter))
-                : $this->failGeneration($generation, $e->errorCode, $e->getMessage(), $ledger);
+                : $this->failGeneration($generation, $e->errorCode, $this->userMessage($e), $ledger);
 
             return;
         }
@@ -153,6 +163,23 @@ class SubmitGeneration implements ShouldQueue
         }
 
         $this->failGeneration($generation, 'submission_failed', 'The generation could not be submitted. You were not charged.', app(Ledger::class));
+    }
+
+    /** Pixelforge's message when it is about the user's request; otherwise a generic one, and the operator is told. */
+    private function userMessage(PixelforgeException $e): string
+    {
+        if (in_array($e->errorCode, self::USER_FACING_ERRORS, true)) {
+            return $e->getMessage();
+        }
+
+        Log::error('Pixelforge rejected a submission for a reason the user cannot fix.', [
+            'generation' => $this->generation->id,
+            'code' => $e->errorCode,
+            'status' => $e->status,
+            'message' => $e->getMessage(),
+        ]);
+
+        return self::UNAVAILABLE_MESSAGE;
     }
 
     /** @return array<string, mixed> */

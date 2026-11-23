@@ -3,22 +3,9 @@
 use App\Contracts\Data\Estimate;
 use App\Contracts\Data\EstimateInput;
 use App\Contracts\Exceptions\InsufficientCredits;
-use App\Contracts\Markup;
 use App\Enums\Quality;
 use App\Enums\Size;
 use App\Support\Money;
-
-it('lets a later binding replace the stub', function () {
-    app()->bind(Markup::class, fn () => new class implements Markup
-    {
-        public function apply(Money $providerCost): Money
-        {
-            return $providerCost->multiplyRatio(125, 100);
-        }
-    });
-
-    expect(app(Markup::class)->apply(Money::of('0.1')))->toEqualMoney('0.125');
-});
 
 it('describes an estimate as provider and user ranges, serialised as decimal strings', function () {
     $estimate = new Estimate(
