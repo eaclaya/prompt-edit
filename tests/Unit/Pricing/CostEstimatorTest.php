@@ -1,6 +1,7 @@
 <?php
 
 use App\Contracts\Data\EstimateInput;
+use App\Contracts\Data\Usage;
 use App\Enums\Quality;
 use App\Enums\Size;
 use App\Pricing\BasisPointsMarkup;
@@ -98,4 +99,66 @@ it('rounds the text bounds outwards so they always contain the real count', func
 
     expect($bounds['min']->inputTextTokens)->toBe(1)
         ->and($bounds['max']->inputTextTokens)->toBe(3);
+});
+
+it('orders min ≤ expected ≤ max for every quality, size and reference count', function (Quality $quality, Size $size) {
+    foreach ([0, 1, 4] as $references) {
+        foreach (['', 'a', str_repeat('lighthouse at dusk ', 50), str_repeat('猫', 4000)] as $prompt) {
+            $estimate = estimator()->estimate(new EstimateInput($prompt, $size, $quality, $references));
+
+            expect($estimate->providerMin->isLessThanOrEqualTo($estimate->providerExpected))->toBeTrue()
+                ->and($estimate->providerExpected->isLessThanOrEqualTo($estimate->providerMax))->toBeTrue()
+                ->and($estimate->userMin->isLessThanOrEqualTo($estimate->userExpected))->toBeTrue()
+                ->and($estimate->userExpected->isLessThanOrEqualTo($estimate->userMax))->toBeTrue()
+                ->and($estimate->userMax->isGreaterThanOrEqualTo($estimate->providerMax))->toBeTrue();
+        }
+    }
+})->with(Quality::cases())->with(Size::cases());
+
+it('prices any real usage within the bounds between min and max (property test)', function () {
+    mt_srand(20261123);
+
+    $calculator = new TokenCostCalculator;
+    $markup = new BasisPointsMarkup(2500);
+    $cents = fn (): string => sprintf('%d.%09d', mt_rand(0, 99), mt_rand(0, 999_999_999));
+
+    for ($run = 0; $run < 500; $run++) {
+        // Arbitrary rates, down to the nanodollar, so rounding is exercised too.
+        $catalog = (new FakePricingCatalog)->withRates([
+            'input_text_tokens' => $cents(),
+            'input_image_tokens' => $cents(),
+            'output_tokens' => $cents(),
+            'reasoning_tokens' => $cents(),
+        ]);
+        $estimator = new TokenCostEstimator($catalog, $calculator, $markup);
+
+        $quality = Quality::cases()[mt_rand(0, 2)];
+        $input = new EstimateInput(
+            prompt: str_repeat(['a', 'é', '猫', '🐈'][mt_rand(0, 3)], mt_rand(0, 4000)),
+            size: Size::cases()[mt_rand(0, 2)],
+            quality: $quality,
+            referenceImageCount: mt_rand(0, 4),
+        );
+
+        $estimate = $estimator->estimate($input);
+        $model = $catalog->tokenModel();
+        $text = (int) ceil($input->promptCharacters() / 4);
+
+        // What Pixelforge might really report: exact output and image tokens,
+        // text within ±15% of ceil(chars / 4), reasoning anywhere in the quality's range.
+        $actual = new Usage(
+            inputTextTokens: mt_rand((int) ceil($text * 0.85), (int) floor($text * 1.15)),
+            inputImageTokens: $input->referenceImageCount * 765,
+            outputTokens: $model->outputTokens($quality, $input->size),
+            reasoningTokens: mt_rand($model->minReasoningTokens($quality), $model->maxReasoningTokens($quality)),
+        );
+
+        $provider = $calculator->providerCost($actual, $catalog->current());
+        $user = $markup->apply($provider);
+
+        expect($provider->isGreaterThanOrEqualTo($estimate->providerMin))->toBeTrue("run {$run}: provider below min")
+            ->and($provider->isLessThanOrEqualTo($estimate->providerMax))->toBeTrue("run {$run}: provider above max")
+            ->and($user->isGreaterThanOrEqualTo($estimate->userMin))->toBeTrue("run {$run}: user below min")
+            ->and($user->isLessThanOrEqualTo($estimate->userMax))->toBeTrue("run {$run}: user above max");
+    }
 });
