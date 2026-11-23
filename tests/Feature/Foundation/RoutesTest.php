@@ -18,17 +18,6 @@ dataset('app routes', [
     'admin.report' => ['GET', fn () => route('admin.report')],
 ]);
 
-// Routes still served by a stub. Landed routes are covered by their owner's tests; S8 removes this test.
-dataset('stub routes', [
-    'admin.report' => ['GET', fn () => route('admin.report')],
-]);
-
-it('answers 501 until the owning session implements the route', function (string $method, string $url) {
-    $this->actingAs(User::factory()->create())
-        ->call($method, $url)
-        ->assertStatus(501);
-})->with('stub routes');
-
 it('sends guests to the login page', function (string $method, string $url) {
     $this->call($method, $url)->assertRedirect(route('login'));
 })->with('app routes');
