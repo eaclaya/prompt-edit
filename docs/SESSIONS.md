@@ -219,7 +219,7 @@ POST /webhooks/pixelforge         PixelforgeWebhookController   (S5, CSRF-exempt
    - submit → webhook `processing` → `succeeded` → one charge and the correct balance
    - submit → `failed` → $0 charged and the hold released
    - a duplicate, out-of-order storm, after which the admin report equals the fixture usage
-3. Deploys to Laravel Cloud: Postgres, a queue worker, the scheduler, and a production Pixelforge key with its webhook URL and secret.
+3. Serves the app through the Cloudflare tunnel at `prompt-edit.hondukash.dev` (decided 2026-11-23 instead of Laravel Cloud): built assets, queue worker, scheduler, and the Pixelforge key with its webhook URL and secret.
 4. Runs a live smoke test with `[slow]`, `[fail]` and `[duplicate]`.
 5. Writes the README.
 

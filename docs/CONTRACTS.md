@@ -249,7 +249,7 @@ S5 attaches its `VerifyPixelforgeSignature` middleware from the controller
 `HandleInertiaRequests` and is a no-op. S3 owns it from here: make it
 `Inertia::share('balance', fn () => ...)` with the `SharedBalance` shape. No `bootstrap/app.php` edit needed.
 
-`bootstrap/app.php` also has `trustProxies(at: '*')` (https URLs behind the tunnel / Laravel Cloud).
+`bootstrap/app.php` also has `trustProxies(at: '*')` (https URLs behind the Cloudflare tunnel).
 
 ---
 

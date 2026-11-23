@@ -1,6 +1,6 @@
 # Pixelforge Image Studio: Build Plan (TDD)
 
-Laravel 13 + Inertia + Vue 3 (official Vue starter kit with Fortify auth), Pest. Everything runs in **Docker**: development, tests and CI. Postgres and Redis are used everywhere. Deployed on Laravel Cloud.
+Laravel 13 + Inertia + Vue 3 (official Vue starter kit with Fortify auth), Pest. Everything runs in **Docker**: development, tests and CI. Postgres and Redis are used everywhere. Served publicly from the Docker stack through a Cloudflare tunnel at `https://prompt-edit.hondukash.dev`.
 
 ---
 
@@ -49,15 +49,14 @@ All commands run inside containers. Nothing depends on the host's PHP, Node, Her
   | S3 | 8003 | 5403 | 6303 | 5203 |
 
   Containers, volumes and networks are namespaced per project.
-- **Public dev URL: `prompt-edit.hondukash.dev`, through a Cloudflare named tunnel**
-  - **Ingress:** the tunnel is remote-managed in the Cloudflare dashboard. Its public hostname `prompt-edit.hondukash.dev` routes to the origin `http://app:80` over the compose network. The token goes in `.env` as `CLOUDFLARE_TUNNEL_TOKEN` and is never committed. `.env.example` has the key with an empty value.
-  - **Pixelforge settings:** the dev API key's webhook URL is `https://prompt-edit.hondukash.dev/webhooks/pixelforge`, and its `whsec_…` goes in `PIXELFORGE_WEBHOOK_SECRET`. Production gets its own key, URL and secret.
-  - **App settings:** when tunnelling, `APP_URL=https://prompt-edit.hondukash.dev`. Proxies are trusted (`trustProxies(at: '*')` in `bootstrap/app.php`), so Laravel sees HTTPS from Cloudflare's `X-Forwarded-*` headers and generates `https://` URLs and secure cookies.
+- **Public URL: `prompt-edit.hondukash.dev`, through a Cloudflare tunnel.** This is also how the app is hosted; there is no separate cloud deploy.
+  - **Ingress:** the host's `cloudflared` tunnel (`hondukash-dev`, a launchd service) has an ingress rule in `~/.cloudflared/config.yml` routing the hostname to the main checkout's stack at `http://localhost:8010`. The compose `tunnel` profile (token in `CLOUDFLARE_TUNNEL_TOKEN`, never committed) is an alternative for machines without it; never run both for the same hostname.
+  - **Pixelforge settings:** the API key's webhook URL is `https://prompt-edit.hondukash.dev/webhooks/pixelforge`, and its `whsec_…` goes in `PIXELFORGE_WEBHOOK_SECRET` in the served stack's own `.env`.
+  - **App settings:** `APP_URL=https://prompt-edit.hondukash.dev`. Proxies are trusted (`trustProxies(at: '*')` in `bootstrap/app.php`), so Laravel sees HTTPS from Cloudflare's `X-Forwarded-*` headers and generates `https://` URLs and secure cookies.
   - **Assets:** over the tunnel, serve built assets (`npm run build`), not the Vite dev server. HMR stays on localhost.
-  - **One tunnel at a time.** The hostname points at a single origin, so only one compose project runs the `tunnel` profile at once. That is normally the stack doing live webhook QA (S5, S8). Other sessions test webhooks with signed fixtures, not live deliveries.
+  - **One origin at a time.** The hostname points at a single stack. Other worktrees test webhooks with signed fixtures, not live deliveries.
 - **CI** (GitHub Actions) runs the same compose stack: `docker compose run --rm app make ci`. Tests behave identically on a laptop and in CI.
-- **Production:** Laravel Cloud builds from the repo with its own runtime, not our image. Docker is for parity in dev and CI. The compose file mirrors Cloud's services (Postgres, Redis, a worker and a scheduler) so nothing surprises us at deploy time.
-  - If we ever need a Docker-based host instead, a multi-stage `docker/production/Dockerfile` (PHP-FPM + nginx, assets built in a Node stage) is a small follow-up.
+- **Hosting:** the main checkout's Docker stack behind the tunnel. Docker is used for dev, CI and hosting alike. A multi-stage production image (PHP-FPM + nginx) or a managed host is a follow-up if the app ever needs to run without this machine.
 
 ---
 
@@ -321,13 +320,12 @@ The test lists below are written **in the order they should be written**. Each b
 - The `/v1/usage` fixture is compared to our totals, and differences are flagged per day.
 - Ranges over 92 days are split into several usage calls.
 
-### Phase 8: Deploy
-- Smoke test against production with a separate API key:
-  - submit → webhook → charge
+### Phase 8: Hosting and live smoke test
+- The main checkout's stack serves `https://prompt-edit.hondukash.dev` through the tunnel, with built assets, the `queue` worker and the `scheduler` running.
+- Live smoke test with the real API key:
+  - submit → webhook → charge, for `[succeed]`, `[slow]`, `[fail]` and `[duplicate]`
   - the webhook delivery log in Pixelforge shows 2xx
   - the admin report matches `/v1/usage`
-- Laravel Cloud runs a queue worker and the scheduler, matching the `queue` and `scheduler` containers. The production `.env` is documented in `.env.example`.
-- Before deploying, a full rehearsal runs locally: `make up` plus `make tunnel`, with the dev Pixelforge key's webhook URL set to `https://prompt-edit.hondukash.dev/webhooks/pixelforge`. Pixelforge's delivery log should show 2xx.
 
 ### Phase 9: Polish and README
 - README covering the decisions, how to run the tests, the TDD log (the commit history reads as specs), and known limits.

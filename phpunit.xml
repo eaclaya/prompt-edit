@@ -36,6 +36,10 @@
         <env name="PIXELFORGE_API_KEY" value="pf_test_key" force="true"/>
         <env name="PIXELFORGE_WEBHOOK_SECRET" value="whsec_test_secret" force="true"/>
         <env name="PIXELFORGE_WEBHOOK_TOLERANCE" value="300" force="true"/>
+        <env name="PIXELFORGE_REQUESTS_PER_MINUTE" value="60" force="true"/>
+        <env name="PIXELFORGE_MAX_CONCURRENT" value="3" force="true"/>
+        <env name="PIXELFORGE_TIMEOUT" value="10" force="true"/>
+        <env name="PIXELFORGE_CONNECT_TIMEOUT" value="5" force="true"/>
         <env name="MARKUP_BPS" value="2500" force="true"/>
         <env name="WELCOME_CREDIT_USD" value="1.00" force="true"/>
     </php>

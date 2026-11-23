@@ -9,7 +9,7 @@ Laravel 13 · Inertia 3 · Vue 3 (official Vue starter kit with Fortify auth) ·
 - [Running it (Docker + make)](#running-it)
 - [Tests and the TDD log](#tests-and-the-tdd-log)
 - [Live smoke test](#live-smoke-test)
-- [Deploying to Laravel Cloud](#deploying-to-laravel-cloud)
+- [Hosting (Cloudflare tunnel)](#hosting-cloudflare-tunnel)
 - [Known limits](#known-limits)
 
 ---
@@ -143,7 +143,7 @@ The app is at `http://localhost:${APP_PORT}` (8000 by default) and Mailpit at `h
 | `pgsql` | Postgres 17 with `laravel` and `testing` databases |
 | `redis` | queue, cache, submission funnel |
 | `mailpit` | catches auth emails |
-| `tunnel` (profile) | Cloudflare named tunnel → `https://prompt-edit.hondukash.dev` |
+| `tunnel` (profile, optional) | token-based cloudflared, an alternative to the host tunnel described under [Hosting](#hosting-cloudflare-tunnel) |
 
 | Command | Does |
 |---|---|
@@ -152,7 +152,7 @@ The app is at `http://localhost:${APP_PORT}` (8000 by default) and Mailpit at `h
 | `make lint` | Pint, Larastan (level 7), `vp check`, `vue-tsc` |
 | `make fix` | apply Pint and frontend formatting |
 | `make fresh` | `migrate:fresh --seed` |
-| `make tunnel` | build assets and start the Cloudflare tunnel |
+| `make tunnel` | stop Vite, build assets, and start the optional `tunnel` container (needs `CLOUDFLARE_TUNNEL_TOKEN`) |
 | `make shell` | bash in `app` |
 | `make ci` | what GitHub Actions runs |
 
@@ -164,7 +164,7 @@ The app is at `http://localhost:${APP_PORT}` (8000 by default) and Mailpit at `h
 
 ## Tests and the TDD log
 
-**522 Pest tests** (about 5,900 assertions) and **57 Vitest tests in 7 files**. All run inside Docker against Postgres and Redis, the same engines as production. `lockForUpdate`, partial unique indexes and `insertOrIgnore` behave differently on SQLite, so we don't use it.
+**522 Pest tests** (about 5,900 assertions) and **57 Vitest tests in 7 files**. All run inside Docker against Postgres and Redis, the same engines the public stack uses. `lockForUpdate`, partial unique indexes and `insertOrIgnore` behave differently on SQLite, so we don't use it.
 
 | Suite | Covers |
 |---|---|
@@ -208,8 +208,8 @@ The build was split into eight sessions (`docs/SESSIONS.md`). S1 landed the cont
 
 The QA script for the real API goes through the tunnel. Pixelforge rejects `localhost` webhook URLs.
 
-1. In `.env`: a valid `PIXELFORGE_API_KEY`, its `PIXELFORGE_WEBHOOK_SECRET`, `CLOUDFLARE_TUNNEL_TOKEN`, and `APP_URL=https://prompt-edit.hondukash.dev`. In the Pixelforge dashboard, set the key's webhook URL to `https://prompt-edit.hondukash.dev/webhooks/pixelforge`.
-2. `make tunnel`. Only one stack may run the tunnel at a time.
+1. In the `.env` of the stack the tunnel points at: a valid `PIXELFORGE_API_KEY`, its `PIXELFORGE_WEBHOOK_SECRET`, and `APP_URL=https://prompt-edit.hondukash.dev`. In the Pixelforge dashboard, set the key's webhook URL to `https://prompt-edit.hondukash.dev/webhooks/pixelforge`.
+2. Serve built assets and route the tunnel to that stack, as described under [Hosting](#hosting-cloudflare-tunnel).
 3. Submit prompts containing the test keywords:
    - `[succeed]`: charged the actual cost
    - `[slow]`: stays processing for a while, and History keeps polling
@@ -235,47 +235,48 @@ The QA script for the real API goes through the tunnel. Pixelforge rejects `loca
 
 ---
 
-## Deploying to Laravel Cloud
+## Hosting (Cloudflare tunnel)
 
-Laravel Cloud builds from the repository with its own runtime. The Docker stack is for development and CI parity, and its services mirror what Cloud needs. **Nothing has been deployed yet.** These are the steps.
+The app is served publicly at **`https://prompt-edit.hondukash.dev`** from the Docker stack in the main checkout, through a Cloudflare tunnel. There is no separate cloud deploy.
 
-1. **Application:** connect the repository, choose PHP 8.4 and Node 22.
-   - Build commands:
+**How the URL reaches the app**
 
-     ```bash
-     composer install --no-dev --optimize-autoloader
-     ```
+- A **host-managed `cloudflared` tunnel** (`hondukash-dev`, run as a launchd service) owns the hostname. Its ingress rule in `~/.cloudflared/config.yml` points the hostname at `http://localhost:8010`, which is this stack's `app` container (`APP_PORT=8010`, `COMPOSE_PROJECT_NAME=prompt-edit`).
+- Cloudflare terminates TLS. Proxies are trusted (`trustProxies(at: '*')`), so Laravel sees `https` and builds correct URLs and cookies.
+- The compose `tunnel` profile (`make tunnel`, token-based) is an alternative for machines without the host tunnel. Never run both for the same hostname.
 
-     ```bash
-     npm ci && npm run build
-     ```
+**Requirements for the served stack**
 
-   - Deploy command:
+- **Its own `.env`** must hold the real `PIXELFORGE_API_KEY` and `PIXELFORGE_WEBHOOK_SECRET`, and `APP_URL=https://prompt-edit.hondukash.dev`. Each worktree has its own `.env`. A stack with an empty or stale secret answers Pixelforge's deliveries with `400 invalid_signature`.
+- **Built assets, not Vite.** Stop the `vite` container, remove `public/hot`, and run `npm run build`. Over https, the browser blocks the dev server's `http://localhost` assets.
+- **The `queue` and `scheduler` containers must be running.** Webhooks are processed on the queue, and the scheduler runs `generations:reconcile` every minute.
+- After changing `.env`: `php artisan config:clear`, then `docker compose restart queue scheduler`.
 
-     ```bash
-     php artisan migrate --force
-     ```
+**Bringing it up**
 
-2. **Database:** attach a Laravel Postgres database. Cloud injects `DB_*`.
-3. **Cache, queue and locks:** attach a Redis-compatible key-value store (Valkey). Cloud injects `REDIS_*`. **This is required:** the submission funnel uses Redis limiters, and `QUEUE_CONNECTION=redis`.
-4. **Queue worker:** add a worker cluster (or a background process) running:
+```bash
+docker compose up -d app queue scheduler pgsql redis mailpit
+```
 
-   ```bash
-   php artisan queue:work redis --tries=1 --timeout=60
-   ```
+```bash
+make install
+```
 
-   Jobs set their own attempts: `SubmitGeneration` allows 10.
-5. **Scheduler:** turn on the scheduler for the app's compute. It runs `generations:reconcile` every minute.
-6. **Environment:** see the "Production (Laravel Cloud)" block at the bottom of `.env.example`. The production deploy uses a **separate Pixelforge key** whose webhook URL is `https://<your-app>/webhooks/pixelforge`, with its own `whsec_…`.
-7. **First run:** run the seeder once, with your own `SEED_*` passwords set:
+```bash
+rm -f public/hot && docker compose exec -u sail app npm run build
+```
 
-   ```bash
-   php artisan db:seed --force
-   ```
+```bash
+docker compose exec -u sail app php artisan migrate --seed --force
+```
 
-   Then run the smoke test above against the production URL.
+**Checking it**
 
-Proxies are already trusted (`trustProxies(at: '*')`), so URLs and cookies are `https` behind Cloud's load balancer.
+- `https://prompt-edit.hondukash.dev/login` loads with `/build/assets/…` scripts.
+- An unsigned `POST /webhooks/pixelforge` returns `400`. A ping signed with the secret returns `200 {"received":true}`.
+- A test event sent from the Pixelforge dashboard shows as delivered (2xx).
+
+**Limits of tunnel hosting.** The site is up only while this machine, Docker and the tunnel service are running. There is no zero-downtime deploy: rebuild the assets and restart the containers to ship a change.
 
 ---
 
