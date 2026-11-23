@@ -7,6 +7,9 @@ use App\Pixelforge\Data\ProviderGeneration;
 use App\Pixelforge\Data\ProviderGenerationPage;
 use App\Pixelforge\Data\ProviderPricing;
 use App\Pixelforge\Data\ProviderUsage;
+use App\Pixelforge\Exceptions\ConnectionFailed;
+use App\Pixelforge\Exceptions\PixelforgeException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -14,6 +17,8 @@ use Illuminate\Support\Facades\Http;
 /**
  * Thin HTTP layer over the Pixelforge API. No retries, no business rules:
  * callers decide what to do with each typed exception.
+ *
+ * Every method throws a PixelforgeException subclass on failure (see app/Pixelforge/Exceptions).
  */
 class PixelforgeClient
 {
@@ -96,10 +101,24 @@ class PixelforgeClient
         return $this->request()->withToken((string) $this->apiKey);
     }
 
-    /** @param  callable(): Response  $request */
+    /**
+     * @param  callable(): Response  $request
+     *
+     * @throws PixelforgeException
+     */
     private function send(callable $request): Response
     {
-        return $request()->throw();
+        try {
+            $response = $request();
+        } catch (ConnectionException $e) {
+            throw ConnectionFailed::from($e);
+        }
+
+        if ($response->failed()) {
+            throw PixelforgeException::fromResponse($response);
+        }
+
+        return $response;
     }
 
     /** @return array<string, mixed> */

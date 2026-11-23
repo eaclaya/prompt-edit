@@ -6,8 +6,22 @@ use App\Enums\GenerationStatus;
 use App\Enums\Quality;
 use App\Enums\Size;
 use App\Pixelforge\Data\ProviderGeneration;
+use App\Pixelforge\Exceptions\ConcurrencyLimited;
+use App\Pixelforge\Exceptions\ConnectionFailed;
+use App\Pixelforge\Exceptions\ContentPolicyViolation;
+use App\Pixelforge\Exceptions\DailyLimitExceeded;
+use App\Pixelforge\Exceptions\DateRangeTooLong;
+use App\Pixelforge\Exceptions\IdempotencyKeyReused;
+use App\Pixelforge\Exceptions\InvalidApiKey;
+use App\Pixelforge\Exceptions\NotFound;
+use App\Pixelforge\Exceptions\Overloaded;
+use App\Pixelforge\Exceptions\PixelforgeException;
+use App\Pixelforge\Exceptions\RateLimited;
+use App\Pixelforge\Exceptions\ServerError;
+use App\Pixelforge\Exceptions\ValidationFailed;
 use App\Pixelforge\PixelforgeClient;
 use App\Support\Money;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\Fixtures\PixelforgeFixtures;
@@ -169,4 +183,83 @@ it('reads usage per UTC day for a date range', function () {
         ->and($usage->total->cost->toDecimal())->toBe('0.169080000')
         ->and($usage->forDate('2026-11-01')?->generations)->toBe(3)
         ->and($usage->forDate('2026-10-01'))->toBeNull();
+});
+
+it('maps documented errors to typed exceptions', function (string $code, int $status, string $exception, ?int $retryAfter, bool $retryable) {
+    Http::fake([
+        'pixelforge.test/v1/generations' => Http::response(
+            PixelforgeFixtures::load("errors/{$code}"),
+            $status,
+            $retryAfter === null ? [] : ['Retry-After' => (string) $retryAfter],
+        ),
+    ]);
+
+    try {
+        client()->createGeneration(['prompt' => 'x'], 'key');
+        $this->fail('No exception was thrown.');
+    } catch (PixelforgeException $e) {
+        expect($e)->toBeInstanceOf($exception)
+            ->and($e->errorCode)->toBe($code)
+            ->and($e->status)->toBe($status)
+            ->and($e->errorType)->toBe(PixelforgeFixtures::load("errors/{$code}")['error']['type'])
+            ->and($e->getMessage())->toBe(PixelforgeFixtures::load("errors/{$code}")['error']['message'])
+            ->and($e->retryAfter)->toBe($retryAfter)
+            ->and($e->isRetryable())->toBe($retryable);
+    }
+})->with([
+    ['invalid_api_key', 401, InvalidApiKey::class, null, false],
+    ['validation_failed', 422, ValidationFailed::class, null, false],
+    ['content_policy_violation', 400, ContentPolicyViolation::class, null, false],
+    ['not_found', 404, NotFound::class, null, false],
+    ['idempotency_key_reused', 409, IdempotencyKeyReused::class, null, false],
+    ['rate_limit_exceeded', 429, RateLimited::class, 12, true],
+    ['concurrency_limit_exceeded', 429, ConcurrencyLimited::class, 5, true],
+    ['daily_limit_exceeded', 429, DailyLimitExceeded::class, null, false],
+    ['overloaded', 503, Overloaded::class, 2, true],
+    ['date_range_too_long', 422, DateRangeTooLong::class, null, false],
+]);
+
+it('exposes the invalid parameter and every validation problem', function () {
+    Http::fake(['pixelforge.test/v1/generations' => Http::response(PixelforgeFixtures::load('errors/validation_failed'), 422)]);
+
+    try {
+        client()->createGeneration(['prompt' => 'x', 'size' => '1x1'], 'key');
+    } catch (ValidationFailed $e) {
+        expect($e->param)->toBe('size')
+            ->and($e->errors)->toBe(['size' => ['The size must be one of: 1024x1024, 1536x1024, 1024x1536.']]);
+
+        return;
+    }
+
+    $this->fail('ValidationFailed was not thrown.');
+});
+
+it('treats an unexpected server error as retryable', function () {
+    Http::fake(['pixelforge.test/v1/generations/*' => Http::response('<html>Bad gateway</html>', 502)]);
+
+    expect(fn () => client()->getGeneration('gen_1'))->toThrow(function (ServerError $e) {
+        expect($e->status)->toBe(502)
+            ->and($e->errorCode)->toBe('server_error')
+            ->and($e->isRetryable())->toBeTrue();
+    });
+});
+
+it('treats an unknown client error as not retryable', function () {
+    Http::fake(['pixelforge.test/v1/generations/*' => Http::response(['error' => ['type' => 'x', 'code' => 'something_new', 'message' => 'New.']], 418)]);
+
+    expect(fn () => client()->getGeneration('gen_1'))->toThrow(function (PixelforgeException $e) {
+        expect($e::class)->toBe(PixelforgeException::class)
+            ->and($e->errorCode)->toBe('something_new')
+            ->and($e->isRetryable())->toBeFalse();
+    });
+});
+
+it('turns a connection failure into a retryable exception', function () {
+    Http::fake(fn () => throw new ConnectionException('timed out'));
+
+    expect(fn () => client()->getPricing())->toThrow(function (ConnectionFailed $e) {
+        expect($e->isRetryable())->toBeTrue()
+            ->and($e->status)->toBeNull()
+            ->and($e->getPrevious())->toBeInstanceOf(ConnectionException::class);
+    });
 });
