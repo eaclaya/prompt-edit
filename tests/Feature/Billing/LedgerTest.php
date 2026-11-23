@@ -8,6 +8,7 @@ use App\Models\CreditTransaction;
 use App\Models\Generation;
 use App\Models\User;
 use App\Support\Money;
+use Illuminate\Database\UniqueConstraintViolationException;
 
 /** A user whose balance came through the ledger. */
 function fundedUser(string $amount = '1.00'): User
@@ -277,7 +278,7 @@ describe('database guarantees', function () {
             'type' => LedgerEntryType::Charge,
             'amount_nanos' => Money::of('-0.30'),
             'balance_after_nanos' => Money::of('0.40'),
-        ]))->toThrow(Illuminate\Database\UniqueConstraintViolationException::class);
+        ]))->toThrow(UniqueConstraintViolationException::class);
     });
 
     it('leaves a charged generation alone when its owner account is gone', function () {

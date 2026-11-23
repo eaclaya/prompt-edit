@@ -99,7 +99,7 @@ final class DatabaseLedger implements Ledger
 
     public function available(User $user): Money
     {
-        return $this->availableFor($user->newQuery()->findOrFail($user->getKey()));
+        return $this->availableFor(User::whereKey($user->getKey())->firstOrFail());
     }
 
     /** Cached balance plus the (negative) sum of hold and hold_release rows, i.e. minus open holds. */
