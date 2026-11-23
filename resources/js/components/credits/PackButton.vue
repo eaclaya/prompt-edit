@@ -34,7 +34,7 @@ function buy(): void {
     <Button
         :disabled="form.processing"
         :data-pack="pack.id"
-        class="h-auto flex-col gap-1 py-4"
+        class="h-auto flex-col gap-1 py-4 select-none"
         variant="outline"
         @click="buy"
     >
