@@ -12,6 +12,10 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      COMPOSE_PROJECT_NAME: prompt-edit-ci
 
     steps:
       - name: Checkout code
@@ -19,20 +23,20 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
-        with:
-          php-version: '8.3'
-          tools: composer:v2
-          coverage: none
+      - name: Match container user to the runner
+        run: |
+          echo "WWWUSER=$(id -u)" >> "$GITHUB_ENV"
+          echo "WWWGROUP=$(id -g)" >> "$GITHUB_ENV"
 
-      - name: Setup Node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '22'
+      - name: Build the app image
+        run: docker compose build app
 
-      - name: Setup Application
-        run: composer setup
+      - name: Start Postgres and Redis
+        run: docker compose up -d --wait pgsql redis
 
-      - name: Run CI Checks
-        run: composer ci:check
+      - name: Run make ci inside the stack (Pest, Pint, Larastan, type-check)
+        run: docker compose run --rm --no-deps app make ci
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v
