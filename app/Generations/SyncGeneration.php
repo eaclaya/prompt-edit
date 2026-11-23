@@ -7,6 +7,7 @@ use App\Contracts\GenerationSync;
 use App\Contracts\Ledger;
 use App\Contracts\Markup;
 use App\Enums\GenerationStatus;
+use App\Jobs\StoreGenerationImage;
 use App\Models\Generation;
 use App\Pixelforge\Data\ProviderGeneration;
 use App\Support\Money;
@@ -122,6 +123,10 @@ final class SyncGeneration implements GenerationSync
         }
 
         $this->ledger->settle($generation, $charge);
+
+        if (config('pixelforge.store_images') && $remote->imageUrl !== null) {
+            StoreGenerationImage::dispatch($generation->id)->afterCommit();
+        }
     }
 
     private function fail(Generation $generation, ProviderGeneration $remote): void

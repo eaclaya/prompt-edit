@@ -34,7 +34,7 @@ function pageLabel(label: string): string {
         <div class="flex flex-wrap items-start justify-between gap-4">
             <Heading
                 title="History"
-                description="Your generations, newest first. Images stay available for 24 hours."
+                description="Your generations, newest first."
             />
             <Button as-child>
                 <Link :href="create()">

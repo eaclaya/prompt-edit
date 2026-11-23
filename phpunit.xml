@@ -40,6 +40,7 @@
         <env name="PIXELFORGE_MAX_CONCURRENT" value="3" force="true"/>
         <env name="PIXELFORGE_TIMEOUT" value="10" force="true"/>
         <env name="PIXELFORGE_CONNECT_TIMEOUT" value="5" force="true"/>
+        <env name="PIXELFORGE_STORE_IMAGES" value="false" force="true"/>
         <env name="MARKUP_BPS" value="2500" force="true"/>
         <env name="WELCOME_CREDIT_USD" value="1.00" force="true"/>
     </php>

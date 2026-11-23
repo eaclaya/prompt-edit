@@ -22,6 +22,9 @@ return [
     // Seconds a webhook's signed timestamp may differ from now.
     'webhook_tolerance' => (int) env('PIXELFORGE_WEBHOOK_TOLERANCE', 300),
 
+    // Keep our own copy of each image (Pixelforge's image_url expires 24 h after completion).
+    'store_images' => (bool) env('PIXELFORGE_STORE_IMAGES', true),
+
     // HTTP client timeouts, in seconds.
     'timeout' => (int) env('PIXELFORGE_TIMEOUT', 10),
     'connect_timeout' => (int) env('PIXELFORGE_CONNECT_TIMEOUT', 5),

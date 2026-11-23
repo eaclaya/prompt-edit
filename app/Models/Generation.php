@@ -38,6 +38,7 @@ use Illuminate\Support\Carbon;
  * @property Money|null $charged_nanos
  * @property string|null $image_url
  * @property Carbon|null $image_url_expires_at
+ * @property string|null $image_path our copy on the public disk
  * @property Carbon|null $submitted_at
  * @property Carbon|null $started_at
  * @property Carbon|null $completed_at

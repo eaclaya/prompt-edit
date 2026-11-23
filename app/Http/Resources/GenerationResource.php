@@ -9,6 +9,7 @@ use App\Enums\TokenType;
 use App\Models\Generation;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * GenerationSummary, or GenerationDetail after ->detailed() (resources/js/types/generations.ts).
@@ -56,7 +57,7 @@ class GenerationResource extends JsonResource
                 'max' => $this->est_max_nanos->toDecimal(),
             ],
             'charged' => $this->status->isFinal() ? $this->charged_nanos?->toDecimal() : null,
-            'image_url' => $expired ? null : $this->image_url,
+            'image_url' => $this->imageUrl($expired),
             'image_expired' => $expired,
             'error' => $this->error_code === null ? null : [
                 'code' => $this->error_code,
@@ -76,7 +77,8 @@ class GenerationResource extends JsonResource
             'usage' => $this->usage,
             'rates' => $rates?->toArray(),
             'breakdown' => $this->breakdown($rates),
-            'image_url_expires_at' => $this->image_url_expires_at?->toJSON(),
+            // Only Pixelforge's link expires; once we hold a copy there is nothing to expire.
+            'image_url_expires_at' => $this->image_path === null ? $this->image_url_expires_at?->toJSON() : null,
             'started_at' => $this->started_at?->toJSON(),
         ];
     }
@@ -110,8 +112,21 @@ class GenerationResource extends JsonResource
         ];
     }
 
+    /** Our copy when we have one, else Pixelforge's link while it is still valid. */
+    private function imageUrl(bool $expired): ?string
+    {
+        if ($this->image_path !== null) {
+            return Storage::disk('public')->url($this->image_path);
+        }
+
+        return $expired ? null : $this->image_url;
+    }
+
+    /** Only Pixelforge's link expires; our copy does not. */
     private function imageExpired(): bool
     {
-        return $this->image_url_expires_at !== null && ! $this->image_url_expires_at->isFuture();
+        return $this->image_path === null
+            && $this->image_url_expires_at !== null
+            && ! $this->image_url_expires_at->isFuture();
     }
 }

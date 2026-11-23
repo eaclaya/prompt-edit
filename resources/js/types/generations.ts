@@ -53,7 +53,7 @@ export type GenerationSummary = {
     charged: Money | null;
     /** null unless succeeded and still live. */
     image_url: string | null;
-    /** true once image_url_expires_at has passed (show a placeholder). */
+    /** true once Pixelforge's link has expired and we hold no copy (show a placeholder). */
     image_expired: boolean;
     error: GenerationError | null;
     created_at: Timestamp;
