@@ -40,7 +40,10 @@ fix: ## Apply Pint and frontend formatting fixes
 shell: ## A shell in the app container
 	docker compose exec -u sail app bash
 
-tunnel: ## Start the Cloudflare tunnel (https://prompt-edit.hondukash.dev → app:80)
+tunnel: ## Serve built assets and start the Cloudflare tunnel (https://prompt-edit.hondukash.dev → app:80)
+	docker compose stop vite
+	rm -f public/hot
+	$(RUN) npm run build
 	docker compose --profile tunnel up -d tunnel
 
 fresh: ## Rebuild the dev database with seed data

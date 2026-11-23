@@ -32,6 +32,9 @@ export default defineConfig({
         }),
     ]),
     server: {
+        // In Docker (the compose `vite` service) listen on every interface,
+        // but point the browser and public/hot at localhost.
+        ...(process.env.LARAVEL_SAIL ? { hmr: { host: 'localhost' } } : {}),
         watch: {
             ignored: [
                 '**/.agents/**',
