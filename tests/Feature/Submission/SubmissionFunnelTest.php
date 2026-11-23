@@ -1,9 +1,11 @@
 <?php
 
+use App\Contracts\GenerationSync;
 use App\Enums\GenerationStatus;
 use App\Jobs\SubmitGeneration;
 use App\Models\Generation;
 use App\Models\User;
+use App\Pixelforge\Data\ProviderGeneration;
 use Illuminate\Pipeline\Pipeline;
 use Illuminate\Redis\Limiters\DurationLimiter;
 use Illuminate\Support\Facades\Redis;
@@ -122,9 +124,9 @@ it('does not spend a per-minute slot while waiting for a concurrency slot', func
 
 it('frees the concurrency slot when the submission throws', function () {
     occupyConcurrencySlots(2);
-    app()->instance(\App\Contracts\GenerationSync::class, new class implements \App\Contracts\GenerationSync
+    app()->instance(GenerationSync::class, new class implements GenerationSync
     {
-        public function apply(\App\Pixelforge\Data\ProviderGeneration $g): ?Generation
+        public function apply(ProviderGeneration $g): ?Generation
         {
             throw new RuntimeException('Sync failed');
         }

@@ -10,8 +10,8 @@ use App\Pixelforge\Exceptions\PixelforgeException;
 use App\Pixelforge\PixelforgeClient;
 use Closure;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Contracts\Redis\LimiterTimeoutException;
+use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Redis\Limiters\ConcurrencyLimiter;
 use Illuminate\Redis\Limiters\DurationLimiter;
 use Illuminate\Support\Facades\Redis;
@@ -162,7 +162,7 @@ class SubmitGeneration implements ShouldQueue
             'prompt' => $generation->prompt,
             'size' => $generation->size->value,
             'quality' => $generation->quality->value,
-            'reference_images' => array_values($generation->reference_images),
+            'reference_images' => $generation->reference_images,
             'metadata' => ['local_id' => $generation->id],
         ], array_flip(self::ALLOWED_FIELDS));
     }
