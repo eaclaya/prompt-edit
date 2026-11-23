@@ -93,16 +93,21 @@ final class Studio
         return $user;
     }
 
-    /** @param  array<string, mixed>  $input */
+    /**
+     * Submit through the Create form. Defaults to the docs' example request (high, 1536x1024,
+     * one reference), whose max covers the generation.succeeded fixture's 0.3818875 charge.
+     *
+     * @param  array<string, mixed>  $input
+     */
     public static function submit(array $input = []): Generation
     {
         $before = Generation::pluck('id');
 
         test()->post('/generations', [
             'prompt' => 'A lighthouse on a cliff at dawn, oil painting',
-            'size' => '1024x1024',
-            'quality' => 'medium',
-            'reference_images' => [],
+            'size' => '1536x1024',
+            'quality' => 'high',
+            'reference_images' => ['https://example.com/style.png'],
             ...$input,
         ])->assertSessionHasNoErrors()->assertRedirect(route('generations.index'));
 

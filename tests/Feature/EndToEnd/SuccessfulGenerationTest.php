@@ -15,11 +15,7 @@ it('charges the actual cost once a submitted generation succeeds, and settles th
     expect($user)->toHaveBalance('1.00');
 
     // The docs' example request: high, 1536x1024, one reference image.
-    $generation = Studio::submit([
-        'quality' => 'high',
-        'size' => '1536x1024',
-        'reference_images' => ['https://example.com/style.png'],
-    ]);
+    $generation = Studio::submit();
 
     $max = $generation->est_max_nanos;
     expect($generation->status)->toBe(GenerationStatus::Pending)
