@@ -51,6 +51,7 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/Login', [
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
             'status' => $request->session()->get('status'),
+            'prefill' => self::loginPrefill(),
         ]));
 
         Fortify::resetPasswordView(fn (Request $request) => Inertia::render('auth/ResetPassword', [
@@ -92,5 +93,22 @@ class FortifyServiceProvider extends ServiceProvider
                 ($request->input('credential.id') ?: $request->session()->getId()).'|'.$request->ip(),
             );
         });
+    }
+
+    /**
+     * The demo account's credentials for the login form, when config('seed.prefill_login') is on.
+     *
+     * @return array{email: string, password: string}|null
+     */
+    private static function loginPrefill(): ?array
+    {
+        /** @var array{email: string, password: ?string} $demo */
+        $demo = config('seed.demo');
+
+        if (! config('seed.prefill_login') || blank($demo['password'])) {
+            return null;
+        }
+
+        return ['email' => $demo['email'], 'password' => (string) $demo['password']];
     }
 }

@@ -23,6 +23,8 @@ defineOptions({
 defineProps<{
     status?: string;
     canResetPassword: boolean;
+    /** The demo account, pre-filled on the reviewers' site (config seed.prefill_login). */
+    prefill?: { email: string; password: string } | null;
 }>();
 </script>
 
@@ -34,6 +36,14 @@ defineProps<{
         class="mb-4 text-center text-sm font-medium text-green-600"
     >
         {{ status }}
+    </div>
+
+    <div
+        v-if="prefill"
+        class="mb-4 rounded-md border bg-muted/50 px-4 py-3 text-center text-sm text-muted-foreground"
+        data-test="demo-prefill"
+    >
+        The demo account is filled in: just press <b>Log in</b>.
     </div>
 
     <PasskeyVerify />
@@ -56,6 +66,7 @@ defineProps<{
                     :tabindex="1"
                     autocomplete="email"
                     placeholder="email@example.com"
+                    :default-value="prefill?.email"
                 />
                 <InputError :message="errors.email" />
             </div>
@@ -79,6 +90,7 @@ defineProps<{
                     :tabindex="2"
                     autocomplete="current-password"
                     placeholder="Password"
+                    :default-value="prefill?.password"
                 />
                 <InputError :message="errors.password" />
             </div>
